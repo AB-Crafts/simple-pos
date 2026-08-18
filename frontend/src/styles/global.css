@@ -1039,45 +1039,253 @@ select {
 }
 
 /* ---------------------------------------------------------------------
-   Expenses page
+   Expenses page (Operational Costs & Outflow Tracking)
 --------------------------------------------------------------------- */
-.expenses-page {
+.expenses-page-modern {
   width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
   padding: 24px;
   overflow-y: auto;
 }
 
-.expenses-page__toolbar {
+.expenses-page__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.expenses-page__today {
+.expenses-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.expenses-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* Expenses Stats Row */
+.expenses-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.expense-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.expenses-page__today-label {
-  font-size: 12px;
+.expense-stat-card--today {
+  border-left: 4px solid #f9ab00;
+  background: #fefcf7;
+}
+
+.expense-stat-card__label {
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-soft);
 }
 
-.expenses-page__today-amount {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--warn);
+.expense-stat-card__val {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 2px 0;
 }
 
-.expenses-page__notes {
+.expense-stat-card__sub {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+/* Expenses Toolbar & Filters */
+.expenses-toolbar-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.expenses-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.expenses-search-wrap .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.expenses-search-input {
+  width: 100%;
+  padding-left: 38px;
+  padding-right: 30px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+}
+
+/* Expenses Modern Table */
+.expenses-table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.expenses-modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.expenses-modern-table th {
+  background: #f8f9fa;
+  padding: 14px 16px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.expenses-modern-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.expenses-modern-table tbody tr {
+  transition: background 0.1s ease;
+}
+
+.expenses-modern-table tbody tr:hover {
+  background: #fdfdfd;
+}
+
+.expense-date-cell {
+  min-width: 110px;
+}
+
+.expense-date-main {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.expense-date-time {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.expense-desc-cell {
+  min-width: 180px;
+}
+
+.expense-desc-title {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.expense-desc-notes {
   font-size: 12px;
   color: var(--ink-soft);
   margin-top: 2px;
+}
+
+.expense-cat-badge {
+  display: inline-block;
+  background: #f1f3f4;
+  color: #202124;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #dadce0;
+}
+
+.expense-payment-pill {
+  display: inline-block;
+  background: #f8f9fa;
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.expense-amount-val {
+  font-weight: 800;
+  font-size: 15px;
+  color: #c5221f;
+}
+
+.expenses-empty-cell {
+  padding: 48px 16px !important;
+  text-align: center;
+}
+
+/* Add Expense Modal */
+.expense-form-modal {
+  max-width: 520px;
+}
+
+.expense-modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.quick-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-amount-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
 }
 
 .form-error {
