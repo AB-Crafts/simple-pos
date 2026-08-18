@@ -174,50 +174,100 @@ export function formatCustomerBill(
 }
 
 /**
- * Triggers printing of text formatted receipts via a styled popup window.
+ * Triggers printing of a single formatted text receipt via a styled popup window.
  */
 export function printReceiptText(title: string, text: string): void {
+  printMultipleSlips(title, [text]);
+}
+
+/**
+ * Triggers printing of multiple separate slips (e.g. Chai slip AND Parhata slip) at once.
+ * Each slip is encapsulated in its own page container with proper CSS page-breaks
+ * so thermal and standard printers cut/page-break between each slip automatically.
+ */
+export function printMultipleSlips(title: string, slips: string[]): void {
+  const validSlips = slips.filter((s) => s.trim().length > 0);
+  if (validSlips.length === 0) return;
+
   const win = window.open('', '_blank', 'width=380,height=600');
   if (!win) {
     alert('Please allow popups to print receipts/tokens.');
     return;
   }
 
+  const slipsHtml = validSlips
+    .map(
+      (slip, index) => `
+    <div class="receipt-page ${index < validSlips.length - 1 ? 'has-cut' : ''}">
+      <pre>${escapeHtml(slip)}</pre>
+      ${index < validSlips.length - 1 ? '<div class="cut-indicator">✂ - - - - - - - - - - - - - - - - - ✂</div>' : ''}
+    </div>`
+    )
+    .join('\n');
+
   win.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <title>${title}</title>
   <style>
-    @page { margin: 0; size: auto; }
-    body {
+    @page {
       margin: 0;
-      padding: 12px;
+      size: auto;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+    }
+    body {
       font-family: 'Courier New', Courier, monospace;
       font-size: 13px;
       line-height: 1.35;
-      color: #000;
-      background: #fff;
+    }
+    .receipt-page {
+      padding: 12px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .has-cut {
+      page-break-after: always;
+      break-after: page;
     }
     pre {
       margin: 0;
       white-space: pre-wrap;
       word-break: break-all;
     }
-    .cut-line {
-      margin: 20px 0;
-      border-top: 1px dashed #777;
+    .cut-indicator {
       text-align: center;
       font-size: 11px;
-      color: #555;
+      color: #777;
+      margin: 16px 0 0 0;
+      padding-top: 10px;
+      border-top: 1px dashed #ccc;
     }
     @media print {
-      body { padding: 4px; }
-      .cut-line { page-break-after: always; }
+      body {
+        padding: 0;
+      }
+      .receipt-page {
+        padding: 6px;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .has-cut {
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .cut-indicator {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
-  <pre>${escapeHtml(text)}</pre>
+  ${slipsHtml}
   <script>
     window.onload = function() {
       window.focus();
@@ -237,3 +287,4 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+

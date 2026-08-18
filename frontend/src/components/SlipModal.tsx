@@ -4,6 +4,7 @@ import {
   formatChaiSlip,
   formatParhataSlip,
   printReceiptText,
+  printMultipleSlips,
   type DepartmentItem,
 } from '../utils/slips';
 
@@ -59,9 +60,7 @@ export function SlipModal({
   const hasChai = resolvedChaiItems.length > 0;
   const hasParhata = resolvedParhataItems.length > 0;
 
-  const [activeTab, setActiveTab] = useState<'chai' | 'parhata'>(
-    hasChai ? 'chai' : 'parhata'
-  );
+  const [viewMode, setViewMode] = useState<'both' | 'chai' | 'parhata'>('both');
 
   const chaiSlipText = hasChai ? formatChaiSlip(sale, resolvedChaiItems, isSupplementary) : '';
   const parhataSlipText = hasParhata ? formatParhataSlip(sale, resolvedParhataItems, isSupplementary) : '';
@@ -78,20 +77,19 @@ export function SlipModal({
     }
   }
 
-  function handlePrintBoth() {
-    if (chaiSlipText && parhataSlipText) {
-      const combined = `${chaiSlipText}\n\n--------------------------------\n        --- TEAR HERE ---\n--------------------------------\n\n${parhataSlipText}`;
-      printReceiptText(`Kitchen-Slips-${sale.orderNumber}`, combined);
-    } else if (chaiSlipText) {
-      handlePrintChai();
-    } else if (parhataSlipText) {
-      handlePrintParhata();
+  function handlePrintBothAtOnce() {
+    const slipsToPrint: string[] = [];
+    if (chaiSlipText) slipsToPrint.push(chaiSlipText);
+    if (parhataSlipText) slipsToPrint.push(parhataSlipText);
+
+    if (slipsToPrint.length > 0) {
+      printMultipleSlips(`Kitchen-Slips-${sale.orderNumber}`, slipsToPrint);
     }
   }
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card slip-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card slip-modal" style={{ maxWidth: hasChai && hasParhata ? '720px' : '420px' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <h3 className="modal-title">
@@ -115,57 +113,70 @@ export function SlipModal({
         {hasChai && hasParhata && (
           <div className="slip-tabs">
             <button
-              className={`slip-tab ${activeTab === 'chai' ? 'slip-tab--active' : ''}`}
-              onClick={() => setActiveTab('chai')}
+              className={`slip-tab ${viewMode === 'both' ? 'slip-tab--active' : ''}`}
+              onClick={() => setViewMode('both')}
+            >
+              📄 Both Slips
+            </button>
+            <button
+              className={`slip-tab ${viewMode === 'chai' ? 'slip-tab--active' : ''}`}
+              onClick={() => setViewMode('chai')}
             >
               ☕ Chai Slip ({resolvedChaiItems.reduce((acc, i) => acc + i.quantity, 0)})
             </button>
             <button
-              className={`slip-tab ${activeTab === 'parhata' ? 'slip-tab--active' : ''}`}
-              onClick={() => setActiveTab('parhata')}
+              className={`slip-tab ${viewMode === 'parhata' ? 'slip-tab--active' : ''}`}
+              onClick={() => setViewMode('parhata')}
             >
               🫓 Parhata Slip ({resolvedParhataItems.reduce((acc, i) => acc + i.quantity, 0)})
             </button>
           </div>
         )}
 
-        <div className="slip-preview-container">
-          {activeTab === 'chai' && hasChai && (
-            <pre className="receipt-paper">{chaiSlipText}</pre>
+        <div className="slip-preview-container" style={{ gap: '16px', flexWrap: 'wrap' }}>
+          {(viewMode === 'both' || viewMode === 'chai') && hasChai && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                ☕ SLIP 1: CHAI DEPARTMENT
+              </div>
+              <pre className="receipt-paper">{chaiSlipText}</pre>
+            </div>
           )}
-          {activeTab === 'parhata' && hasParhata && (
-            <pre className="receipt-paper">{parhataSlipText}</pre>
-          )}
-          {!hasChai && hasParhata && activeTab !== 'parhata' && (
-            <pre className="receipt-paper">{parhataSlipText}</pre>
-          )}
-          {hasChai && !hasParhata && activeTab !== 'chai' && (
-            <pre className="receipt-paper">{chaiSlipText}</pre>
+
+          {(viewMode === 'both' || viewMode === 'parhata') && hasParhata && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+                🫓 SLIP 2: PARHATA DEPARTMENT
+              </div>
+              <pre className="receipt-paper">{parhataSlipText}</pre>
+            </div>
           )}
         </div>
 
         <div className="slip-modal-actions">
           <div className="slip-modal-actions__left">
-            {hasChai && hasParhata && (
-              <button className="btn btn-primary btn-large" onClick={handlePrintBoth}>
-                🖨️ Print Both Slips (Chai & Parhata)
+            {hasChai && hasParhata ? (
+              <>
+                <button className="btn btn-primary btn-large" onClick={handlePrintBothAtOnce}>
+                  🖨️ Print 2 Slips at Once (Chai & Parhata)
+                </button>
+                <button className="btn btn-secondary" onClick={handlePrintChai}>
+                  Print Chai Only
+                </button>
+                <button className="btn btn-secondary" onClick={handlePrintParhata}>
+                  Print Parhata Only
+                </button>
+              </>
+            ) : hasChai ? (
+              <button className="btn btn-primary btn-large" onClick={handlePrintChai}>
+                🖨️ Print Chai Slip
               </button>
-            )}
-            {hasChai && (
-              <button
-                className={`btn ${!hasParhata ? 'btn-primary btn-large' : 'btn-secondary'}`}
-                onClick={handlePrintChai}
-              >
-                Print Chai Slip
+            ) : hasParhata ? (
+              <button className="btn btn-primary btn-large" onClick={handlePrintParhata}>
+                🖨️ Print Parhata Slip
               </button>
-            )}
-            {hasParhata && (
-              <button
-                className={`btn ${!hasChai ? 'btn-primary btn-large' : 'btn-secondary'}`}
-                onClick={handlePrintParhata}
-              >
-                Print Parhata Slip
-              </button>
+            ) : (
+              <p style={{ margin: 0, color: 'var(--ink-soft)' }}>No departmental items to print.</p>
             )}
           </div>
 
