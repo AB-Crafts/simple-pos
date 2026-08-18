@@ -1298,70 +1298,360 @@ select {
 }
 
 /* ---------------------------------------------------------------------
-   Money Flow page
+   Money Flow page (Cash Drawer & Register Inflow/Outflow Tracking)
 --------------------------------------------------------------------- */
-.moneyflow-page {
+.moneyflow-page-modern {
   width: 100%;
-  max-width: 560px;
+  max-width: 1360px;
+  margin: 0 auto;
   padding: 24px;
   overflow-y: auto;
 }
 
-.moneyflow-page__toolbar {
+.moneyflow-page__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.moneyflow-page__heading {
+.moneyflow-title {
   margin: 0;
-  font-size: 15px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.moneyflow-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 13px;
   color: var(--ink-soft);
 }
 
-.moneyflow-card {
+/* Timeframe Filter Card */
+.moneyflow-filter-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.moneyflow-period-tag {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* Primary Metric Cards Grid */
+.moneyflow-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.flow-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.flow-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flow-card__badge {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #137333;
+}
+
+.flow-card__badge--red {
+  color: #c5221f;
+}
+
+.flow-card__badge--neutral {
+  color: var(--ink-soft);
+}
+
+.flow-card__icon {
+  font-size: 20px;
+}
+
+.flow-card__val {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 2px 0;
+}
+
+.flow-card__breakdown {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.flow-card__breakdown span strong {
+  color: var(--ink);
+}
+
+.flow-card__sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.flow-card--inflow {
+  border-left: 5px solid #1e8e5a;
+  background: #fdfefe;
+}
+
+.flow-card--outflow {
+  border-left: 5px solid #d93025;
+  background: #fdfefe;
+}
+
+.flow-card--net-pos {
+  border-left: 5px solid #1e8e5a;
+  background: #f4faf6;
+}
+
+.flow-card--net-pos .flow-card__val {
+  color: #137333;
+}
+
+.flow-card--net-neg {
+  border-left: 5px solid #d93025;
+  background: #fce8e6;
+}
+
+.flow-card--net-neg .flow-card__val {
+  color: #c5221f;
+}
+
+/* Inflow vs Outflow Breakdown Grid */
+.moneyflow-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.breakdown-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.breakdown-card__title {
+  margin: 0 0 14px 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.breakdown-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.moneyflow-row {
+.breakdown-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8f9fa;
+}
+
+.breakdown-row__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row-icon {
+  font-size: 18px;
+}
+
+.row-desc {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.row-amount {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.breakdown-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 800;
+  border-top: 2px solid var(--border);
+  margin-top: 6px;
+}
+
+/* History Log Table */
+.moneyflow-history-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.history-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.history-subtitle {
+  font-size: 12px;
+  color: var(--ink-soft);
+  display: block;
+  margin-top: 2px;
+}
+
+.moneyflow-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.moneyflow-table th {
+  background: #f8f9fa;
+  padding: 12px 18px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.moneyflow-table td {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.mf-time-cell {
+  min-width: 100px;
+}
+
+.mf-time-main {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.mf-time-sub {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
+.mf-type-badge {
+  display: inline-block;
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.direction-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.direction-pill--in {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.direction-pill--out {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.mf-amount-text {
+  font-weight: 800;
   font-size: 15px;
 }
 
-.moneyflow-row--net {
-  font-size: 20px;
-  font-weight: 700;
+.mf-empty-cell {
+  padding: 40px 16px !important;
+  text-align: center;
 }
 
-.moneyflow-row__in {
-  color: #1e8e5a;
-  font-weight: 600;
+/* Withdraw Modal */
+.withdraw-modal-card {
+  max-width: 480px;
 }
 
-.moneyflow-row__out {
-  color: #b3261e;
-  font-weight: 600;
+.withdraw-modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.moneyflow-divider {
-  border-top: 1px solid var(--border);
-  margin: 6px 0;
-}
-
-.moneyflow-page__note {
-  margin-top: 14px;
-  font-size: 13px;
-  color: var(--ink-soft);
+.moneyflow-modal-tip {
+  background: #e8f0fe;
+  border: 1px solid #d2e3fc;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #174ea6;
+  line-height: 1.4;
 }
 
 /* ---------------------------------------------------------------------
