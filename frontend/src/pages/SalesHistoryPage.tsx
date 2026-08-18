@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../database/db';
 import { formatMoney } from '../utils/money';
-import { formatCustomerBill, formatKitchenSlip, printReceiptText } from '../utils/slips';
+import { formatCustomerBill, formatChaiSlip, formatParhataSlip, printReceiptText } from '../utils/slips';
 import type { Sale, SaleItem } from '../types';
 
 export function SalesHistoryPage() {
@@ -63,15 +63,28 @@ function SaleRow({
   function handlePrintSlips(e: React.MouseEvent) {
     e.stopPropagation();
     if (!items || items.length === 0) return;
-    const slipItems = items.map((i) => ({
+    const chai = items.filter((i) => i.department === 'CHAI').map((i) => ({
+      productId: i.productId,
+      productName: i.productName,
+      quantity: i.quantity,
+      department: i.department,
+    }));
+    const parhata = items.filter((i) => i.department === 'PARHATA').map((i) => ({
       productId: i.productId,
       productName: i.productName,
       quantity: i.quantity,
       department: i.department,
     }));
 
-    const text = formatKitchenSlip(sale, slipItems);
-    printReceiptText(`Kitchen-Token-${sale.orderNumber}`, text);
+    const slips: string[] = [];
+    if (chai.length > 0) slips.push(formatChaiSlip(sale, chai));
+    if (parhata.length > 0) slips.push(formatParhataSlip(sale, parhata));
+
+    if (slips.length > 0) {
+      printReceiptText(`Slips-${sale.orderNumber}`, slips.join('\n\n--------------------------------\n        --- TEAR HERE ---\n--------------------------------\n\n'));
+    } else {
+      alert('No department items in this order.');
+    }
   }
 
   const isPaid = sale.status === 'PAID';

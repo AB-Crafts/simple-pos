@@ -24,11 +24,9 @@ export interface DepartmentItem {
 }
 
 /**
- * Formats a single unified Kitchen Order Slip (KOT).
- * Groups items cleanly (Chai, Parhata, and other kitchen items) in one single slip.
- * Used when placing or adjusting an order.
+ * Formats a Departmental Kitchen Slip specifically for the Chai Department.
  */
-export function formatKitchenSlip(
+export function formatChaiSlip(
   sale: Pick<Sale, 'displayId' | 'orderNumber' | 'orderType' | 'takenBy' | 'createdAt'>,
   items: DepartmentItem[],
   isSupplementary = false,
@@ -38,11 +36,7 @@ export function formatKitchenSlip(
 
   rows.push(line('=', width));
   rows.push(center('BANY PYALA HOTEL', width));
-  if (isSupplementary) {
-    rows.push(center('** ADD-ON KITCHEN SLIP **', width));
-  } else {
-    rows.push(center('KITCHEN ORDER SLIP', width));
-  }
+  rows.push(center(isSupplementary ? '** CHAI ADD-ON SLIP **' : '☕ CHAI DEPARTMENT SLIP', width));
   rows.push(line('=', width));
 
   rows.push(pad(`ORDER #: ${sale.orderNumber}`, sale.orderType === 'DINE_IN' ? '[DINE IN]' : '[TAKE AWAY]', width));
@@ -50,57 +44,78 @@ export function formatKitchenSlip(
   rows.push(`Time:   ${new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`);
   rows.push(line('-', width));
 
-  rows.push(pad(isSupplementary ? 'NEW ADDED ITEM' : 'ITEM', 'QTY', width));
+  rows.push(pad(isSupplementary ? 'NEW ADDED CHAI' : 'CHAI ITEM', 'QTY', width));
   rows.push(line('-', width));
 
-  const chaiItems = items.filter((i) => i.department === 'CHAI');
-  const parhataItems = items.filter((i) => i.department === 'PARHATA');
-  const otherItems = items.filter((i) => i.department !== 'CHAI' && i.department !== 'PARHATA');
-
-  let totalItemsCount = 0;
-
-  if (chaiItems.length > 0) {
-    rows.push('-- CHAI SECTION --');
-    for (const item of chaiItems) {
-      totalItemsCount += item.quantity;
-      rows.push(pad(`  ${item.productName.substring(0, width - 8)}`, `x${item.quantity}`, width));
-    }
-  }
-
-  if (parhataItems.length > 0) {
-    if (chaiItems.length > 0) rows.push('');
-    rows.push('-- PARHATA SECTION --');
-    for (const item of parhataItems) {
-      totalItemsCount += item.quantity;
-      rows.push(pad(`  ${item.productName.substring(0, width - 8)}`, `x${item.quantity}`, width));
-    }
-  }
-
-  if (otherItems.length > 0) {
-    if (chaiItems.length > 0 || parhataItems.length > 0) rows.push('');
-    rows.push('-- OTHER ITEMS --');
-    for (const item of otherItems) {
-      totalItemsCount += item.quantity;
-      rows.push(pad(`  ${item.productName.substring(0, width - 8)}`, `x${item.quantity}`, width));
-    }
+  let totalQty = 0;
+  for (const item of items) {
+    totalQty += item.quantity;
+    rows.push(pad(item.productName.substring(0, width - 6), `x${item.quantity}`, width));
   }
 
   rows.push(line('-', width));
-  rows.push(pad(isSupplementary ? 'TOTAL NEW ITEMS:' : 'TOTAL QUANTITY:', `${totalItemsCount}`, width));
+  rows.push(pad(isSupplementary ? 'TOTAL NEW CHAI:' : 'TOTAL CHAI:', `${totalQty}`, width));
   rows.push(line('=', width));
-  rows.push(center(isSupplementary ? '* Deliver ADD-ON to waiter *' : '* Deliver order to waiter *', width));
+  rows.push(center(isSupplementary ? '* Deliver Chai ADD-ON *' : '* Deliver Chai to waiter *', width));
   rows.push(line('=', width));
 
   return rows.join('\n');
 }
 
-/** Legacy alias for backwards compatibility */
-export const formatDepartmentSlip = (
+/**
+ * Formats a Departmental Kitchen Slip specifically for the Parhata Department.
+ */
+export function formatParhataSlip(
   sale: Pick<Sale, 'displayId' | 'orderNumber' | 'orderType' | 'takenBy' | 'createdAt'>,
   items: DepartmentItem[],
-  _dept?: any,
-  isSupplementary = false
-) => formatKitchenSlip(sale, items, isSupplementary);
+  isSupplementary = false,
+  width = 32
+): string {
+  const rows: string[] = [];
+
+  rows.push(line('=', width));
+  rows.push(center('BANY PYALA HOTEL', width));
+  rows.push(center(isSupplementary ? '** PARHATA ADD-ON SLIP **' : '🫓 PARHATA DEPARTMENT SLIP', width));
+  rows.push(line('=', width));
+
+  rows.push(pad(`ORDER #: ${sale.orderNumber}`, sale.orderType === 'DINE_IN' ? '[DINE IN]' : '[TAKE AWAY]', width));
+  rows.push(`Server: ${sale.takenBy}`);
+  rows.push(`Time:   ${new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`);
+  rows.push(line('-', width));
+
+  rows.push(pad(isSupplementary ? 'NEW ADDED PARHATA' : 'PARHATA ITEM', 'QTY', width));
+  rows.push(line('-', width));
+
+  let totalQty = 0;
+  for (const item of items) {
+    totalQty += item.quantity;
+    rows.push(pad(item.productName.substring(0, width - 6), `x${item.quantity}`, width));
+  }
+
+  rows.push(line('-', width));
+  rows.push(pad(isSupplementary ? 'TOTAL NEW PARHATA:' : 'TOTAL PARHATA:', `${totalQty}`, width));
+  rows.push(line('=', width));
+  rows.push(center(isSupplementary ? '* Deliver Parhata ADD-ON *' : '* Deliver Parhata to waiter *', width));
+  rows.push(line('=', width));
+
+  return rows.join('\n');
+}
+
+/**
+ * Formats a single departmental slip (Chai or Parhata).
+ */
+export function formatDepartmentSlip(
+  sale: Pick<Sale, 'displayId' | 'orderNumber' | 'orderType' | 'takenBy' | 'createdAt'>,
+  items: DepartmentItem[],
+  department: 'CHAI' | 'PARHATA',
+  isSupplementary = false,
+  width = 32
+): string {
+  if (department === 'CHAI') {
+    return formatChaiSlip(sale, items, isSupplementary, width);
+  }
+  return formatParhataSlip(sale, items, isSupplementary, width);
+}
 
 /**
  * Formats the full customer total bill / receipt.
@@ -188,8 +203,16 @@ export function printReceiptText(title: string, text: string): void {
       white-space: pre-wrap;
       word-break: break-all;
     }
+    .cut-line {
+      margin: 20px 0;
+      border-top: 1px dashed #777;
+      text-align: center;
+      font-size: 11px;
+      color: #555;
+    }
     @media print {
       body { padding: 4px; }
+      .cut-line { page-break-after: always; }
     }
   </style>
 </head>
