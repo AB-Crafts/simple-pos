@@ -25,6 +25,7 @@ export interface DepartmentItem {
 
 /**
  * Formats a Departmental Kitchen Slip specifically for the Chai Department.
+ * Minimal format: Order ID, Date, Time, Serve By, Items and Quantity.
  */
 export function formatChaiSlip(
   sale: Pick<Sale, 'displayId' | 'orderNumber' | 'orderType' | 'takenBy' | 'createdAt'>,
@@ -33,37 +34,29 @@ export function formatChaiSlip(
   width = 32
 ): string {
   const rows: string[] = [];
+  const d = new Date(sale.createdAt || Date.now());
+  const dateStr = d.toLocaleDateString('en-PK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' });
 
-  rows.push(line('=', width));
-  rows.push(center('BANY PYALA HOTEL', width));
-  rows.push(center(isSupplementary ? '** CHAI ADD-ON SLIP **' : '☕ CHAI DEPARTMENT SLIP', width));
-  rows.push(line('=', width));
-
-  rows.push(pad(`ORDER #: ${sale.orderNumber}`, sale.orderType === 'DINE_IN' ? '[DINE IN]' : '[TAKE AWAY]', width));
-  rows.push(`Server: ${sale.takenBy}`);
-  rows.push(`Time:   ${new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`);
+  rows.push(pad(`ORDER ID: #${sale.orderNumber}`, isSupplementary ? '[ADD-ON]' : '', width));
+  rows.push(`DATE:     ${dateStr}`);
+  rows.push(`TIME:     ${timeStr}`);
+  rows.push(`SERVE BY: ${sale.takenBy}`);
   rows.push(line('-', width));
 
-  rows.push(pad(isSupplementary ? 'NEW ADDED CHAI' : 'CHAI ITEM', 'QTY', width));
+  rows.push(pad('ITEM', 'QTY', width));
   rows.push(line('-', width));
 
-  let totalQty = 0;
   for (const item of items) {
-    totalQty += item.quantity;
     rows.push(pad(item.productName.substring(0, width - 6), `x${item.quantity}`, width));
   }
-
-  rows.push(line('-', width));
-  rows.push(pad(isSupplementary ? 'TOTAL NEW CHAI:' : 'TOTAL CHAI:', `${totalQty}`, width));
-  rows.push(line('=', width));
-  rows.push(center(isSupplementary ? '* Deliver Chai ADD-ON *' : '* Deliver Chai to waiter *', width));
-  rows.push(line('=', width));
 
   return rows.join('\n');
 }
 
 /**
  * Formats a Departmental Kitchen Slip specifically for the Parhata Department.
+ * Minimal format: Order ID, Date, Time, Serve By, Items and Quantity.
  */
 export function formatParhataSlip(
   sale: Pick<Sale, 'displayId' | 'orderNumber' | 'orderType' | 'takenBy' | 'createdAt'>,
@@ -72,31 +65,22 @@ export function formatParhataSlip(
   width = 32
 ): string {
   const rows: string[] = [];
+  const d = new Date(sale.createdAt || Date.now());
+  const dateStr = d.toLocaleDateString('en-PK', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' });
 
-  rows.push(line('=', width));
-  rows.push(center('BANY PYALA HOTEL', width));
-  rows.push(center(isSupplementary ? '** PARHATA ADD-ON SLIP **' : '🫓 PARHATA DEPARTMENT SLIP', width));
-  rows.push(line('=', width));
-
-  rows.push(pad(`ORDER #: ${sale.orderNumber}`, sale.orderType === 'DINE_IN' ? '[DINE IN]' : '[TAKE AWAY]', width));
-  rows.push(`Server: ${sale.takenBy}`);
-  rows.push(`Time:   ${new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`);
+  rows.push(pad(`ORDER ID: #${sale.orderNumber}`, isSupplementary ? '[ADD-ON]' : '', width));
+  rows.push(`DATE:     ${dateStr}`);
+  rows.push(`TIME:     ${timeStr}`);
+  rows.push(`SERVE BY: ${sale.takenBy}`);
   rows.push(line('-', width));
 
-  rows.push(pad(isSupplementary ? 'NEW ADDED PARHATA' : 'PARHATA ITEM', 'QTY', width));
+  rows.push(pad('ITEM', 'QTY', width));
   rows.push(line('-', width));
 
-  let totalQty = 0;
   for (const item of items) {
-    totalQty += item.quantity;
     rows.push(pad(item.productName.substring(0, width - 6), `x${item.quantity}`, width));
   }
-
-  rows.push(line('-', width));
-  rows.push(pad(isSupplementary ? 'TOTAL NEW PARHATA:' : 'TOTAL PARHATA:', `${totalQty}`, width));
-  rows.push(line('=', width));
-  rows.push(center(isSupplementary ? '* Deliver Parhata ADD-ON *' : '* Deliver Parhata to waiter *', width));
-  rows.push(line('=', width));
 
   return rows.join('\n');
 }

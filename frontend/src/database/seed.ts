@@ -23,7 +23,45 @@ export async function seedIfEmpty(): Promise<void> {
   }
 
   const existing = await db.products.count();
-  if (existing > 0) return;
+  if (existing > 0) {
+    // Check if Lacha Parhata exists
+    const lacha = await db.products.filter((p) => p.name.toLowerCase().includes('lacha')).first();
+    if (!lacha) {
+      const parhataCat = await db.categories.filter((c) => c.name.toLowerCase().includes('parhata')).first();
+      await db.products.add({
+        id: generateId(),
+        name: 'Lacha Parhata',
+        categoryId: parhataCat?.id || '',
+        department: 'PARHATA',
+        costPrice: toPaisa(50),
+        sellingPrice: toPaisa(100),
+        stock: 150,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Check if Fresh Milk exists
+    const milk = await db.products.filter((p) => p.name.toLowerCase().includes('milk')).first();
+    if (!milk) {
+      const chaiCat = await db.categories.filter((c) => c.name.toLowerCase().includes('chai')).first();
+      await db.products.add({
+        id: generateId(),
+        name: 'Fresh Milk',
+        categoryId: chaiCat?.id || '',
+        department: 'CHAI',
+        costPrice: toPaisa(40),
+        sellingPrice: toPaisa(80),
+        stock: 100,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    return;
+  }
 
   const chaiCatId = generateId();
   const parhataCatId = generateId();
@@ -42,11 +80,13 @@ export async function seedIfEmpty(): Promise<void> {
     // Chai Department
     { name: 'Karak Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 35, sell: 70, stock: 200 },
     { name: 'Doodh Patti', categoryId: chaiCatId, department: 'CHAI' as const, cost: 55, sell: 110, stock: 150 },
+    { name: 'Fresh Milk', categoryId: chaiCatId, department: 'CHAI' as const, cost: 40, sell: 80, stock: 100 },
     { name: 'Elaichi Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 45, sell: 90, stock: 100 },
     { name: 'Kashmiri Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 70, sell: 140, stock: 80 },
     { name: 'Green Tea / Qahwa', categoryId: chaiCatId, department: 'CHAI' as const, cost: 30, sell: 60, stock: 120 },
 
     // Parhata Department
+    { name: 'Lacha Parhata', categoryId: parhataCatId, department: 'PARHATA' as const, cost: 50, sell: 100, stock: 150 },
     { name: 'Sada Parhata', categoryId: parhataCatId, department: 'PARHATA' as const, cost: 40, sell: 80, stock: 150 },
     { name: 'Aloo Parhata', categoryId: parhataCatId, department: 'PARHATA' as const, cost: 75, sell: 150, stock: 80 },
     { name: 'Anda Parhata', categoryId: parhataCatId, department: 'PARHATA' as const, cost: 70, sell: 140, stock: 80 },
