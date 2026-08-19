@@ -9,6 +9,7 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import {
   createOrder,
   updatePendingOrder,
+  prepareOrderPreview,
   type OrderOperationResult,
 } from '../services/salesService';
 import { db } from '../database/db';
@@ -28,69 +29,19 @@ export function POSPage({
   onNavigateToOrders,
 }: Props) {
   const cart = useCart();
-  const [orderType, setOrderType] = useState<OrderType>(
-    editingOrder ? editingOrder.sale.orderType : 'DINE_IN'
-  );
-  const [selectedWaiter, setSelectedWaiter] = useState<string>(
-    editingOrder ? editingOrder.sale.takenBy : 'Buraid'
-  );
   const [waiters, setWaiters] = useState<Waiter[]>([]);
+  const [selectedWaiter, setSelectedWaiter] = useState<string>('Waiter');
+  const [orderType, setOrderType] = useState<OrderType>('DINE_IN');
   const [showAddWaiter, setShowAddWaiter] = useState(false);
   const [newWaiterName, setNewWaiterName] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
 
   const [saving, setSaving] = useState(false);
   const [slipModalResult, setSlipModalResult] = useState<OrderOperationResult | null>(null);
   const [settleModalTarget, setSettleModalTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
 
-  // Load waiters and pending count from database
-  useEffect(() => {
-    loadWaiters();
-    loadPendingCount();
-  }, []);
-
-  async function loadWaiters() {
-    const list = await db.waiters.where('active').equals(1).toArray();
-    if (list.length === 0) {
-      // If table empty or boolean index issue, get all
-      const all = await db.waiters.toArray();
-      setWaiters(all);
-      if (all.length > 0 && !selectedWaiter) {
-        setSelectedWaiter(all[0].name);
-      }
-    } else {
-      setWaiters(list);
-      if (!selectedWaiter && list.length > 0) {
-        setSelectedWaiter(list[0].name);
-      }
-    }
-  }
-
-  async function loadPendingCount() {
-    const count = await db.sales.where('status').equals('PENDING').count();
-    setPendingCount(count);
-  }
-
-  // If editing an existing order, load its items into the cart
-  useEffect(() => {
-    if (editingOrder) {
-      setOrderType(editingOrder.sale.orderType);
-      setSelectedWaiter(editingOrder.sale.takenBy);
-      cart.loadCart(
-        editingOrder.items.map((i) => ({
-          productId: i.productId,
-          name: i.productName,
-          department: i.department,
-          unitPrice: i.unitPrice,
-          quantity: i.quantity,
-        }))
-      );
-      setToast(`Loaded Order #${editingOrder.sale.orderNumber} for editing`);
-    }
-  }, [editingOrder]);
-
-  // Barcode scanner
+  // Barcode scanner integration
   const handleScan = useCallback(
     async (code: string) => {
       const product = await db.products.where('barcode').equals(code).first();
@@ -105,30 +56,89 @@ export function POSPage({
   );
   useBarcodeScanner(handleScan);
 
+  // Load waiters and active pending orders count
+  useEffect(() => {
+    loadWaiters();
+    loadPendingCount();
+  }, []);
+
+  // When an order is being edited, populate cart with its lines
+  useEffect(() => {
+    if (editingOrder) {
+      setOrderType(editingOrder.sale.orderType || 'DINE_IN');
+      if (editingOrder.sale.takenBy) {
+        setSelectedWaiter(editingOrder.sale.takenBy);
+      }
+      cart.loadCart(
+        editingOrder.items.map((i) => ({
+          productId: i.productId,
+          name: i.productName,
+          unitPrice: i.unitPrice,
+          quantity: i.quantity,
+          department: i.department,
+        }))
+      );
+    }
+  }, [editingOrder]);
+
+  async function loadWaiters() {
+    const list = await db.waiters.filter((w) => w.active).toArray();
+    setWaiters(list);
+    if (list.length > 0 && selectedWaiter === 'Waiter') {
+      setSelectedWaiter(list[0].name);
+    }
+  }
+
+  async function loadPendingCount() {
+    const count = await db.sales.where('status').equals('PENDING').count();
+    setPendingCount(count);
+  }
+
   async function handleAddWaiter() {
-    if (!newWaiterName.trim()) return;
     const name = newWaiterName.trim();
-    const newWaiter: Waiter = {
+    if (!name) return;
+    await db.waiters.add({
       id: generateId(),
       name,
       active: true,
       createdAt: Date.now(),
-    };
-    await db.waiters.add(newWaiter);
-    setWaiters((prev) => [...prev, newWaiter]);
+    });
+    await loadWaiters();
     setSelectedWaiter(name);
     setNewWaiterName('');
     setShowAddWaiter(false);
     setToast(`Added waiter "${name}"`);
   }
 
-  // 1. Send Order to Kitchen as PENDING (generates Chai & Parhata slips)
+  // 1. Send Order to Kitchen (Preview first — only committed to DB when "Done" is clicked)
   async function handleSendToKitchen() {
     if (cart.lines.length === 0) return;
     setSaving(true);
     try {
+      const preview = await prepareOrderPreview(
+        cart.lines,
+        orderType,
+        orderType === 'DINE_IN' ? selectedWaiter : 'Cashier',
+        editingOrder?.sale
+      );
+      setSlipModalResult(preview);
+    } catch (err: any) {
+      alert(err.message || 'Failed to prepare order preview');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // 2. Confirm and Save Order to Database (Triggered when user clicks "Done" in SlipModal)
+  async function handleConfirmDone() {
+    if (!slipModalResult || cart.lines.length === 0) {
+      setSlipModalResult(null);
+      return;
+    }
+    setSaving(true);
+    try {
       if (editingOrder) {
-        // Update existing pending order
+        // Update existing pending order in database
         const result = await updatePendingOrder(
           editingOrder.sale.id,
           cart.lines,
@@ -137,11 +147,8 @@ export function POSPage({
         setToast(`Order #${result.sale.orderNumber} updated!`);
         cart.clear();
         if (onClearEditingOrder) onClearEditingOrder();
-
-        // Show slip modal with supplementary token if new department items exist
-        setSlipModalResult(result);
       } else {
-        // Create new pending order
+        // Create new pending order in database
         const result = await createOrder({
           cart: cart.lines,
           orderType,
@@ -150,16 +157,20 @@ export function POSPage({
         });
         setToast(`Order #${result.sale.orderNumber} placed in Pending!`);
         cart.clear();
-
-        // Show kitchen slips modal
-        setSlipModalResult(result);
       }
+      setSlipModalResult(null);
       loadPendingCount();
     } catch (err: any) {
-      alert(err.message || 'Failed to process order');
+      alert(err.message || 'Failed to save order');
     } finally {
       setSaving(false);
     }
+  }
+
+  // 3. Cancel and Discard (Database is NOT touched, order is discarded)
+  function handleCancelDiscard() {
+    setSlipModalResult(null);
+    setToast('Order cancelled / discarded.');
   }
 
   // 2. Complete / Pay immediately (for Takeaways or direct Dine-In payment)
@@ -408,7 +419,9 @@ export function POSPage({
           chaiItems={slipModalResult.chaiItems}
           parhataItems={slipModalResult.parhataItems}
           isSupplementary={slipModalResult.isSupplementary}
-          onClose={() => setSlipModalResult(null)}
+          onConfirmDone={handleConfirmDone}
+          onCancelDiscard={handleCancelDiscard}
+          confirming={saving}
         />
       )}
 

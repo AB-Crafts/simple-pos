@@ -65,6 +65,109 @@ export function partitionDepartmentItems(lines: { productId: string; name?: stri
 }
 
 /**
+ * Previews an order snapshot before committing to the database.
+ * Pure in-memory calculation — does not write anything to Dexie/database.
+ */
+export async function prepareOrderPreview(
+  cart: CartLine[],
+  orderType: OrderType,
+  takenBy: string,
+  editingSale?: Sale | null
+): Promise<OrderOperationResult> {
+  const subtotal = sumPaisa(cart.map((l) => l.unitPrice * l.quantity));
+  const discount = editingSale ? editingSale.discount : 0;
+  const total = subtotal - discount;
+
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const salesToday = await db.sales.where('createdAt').aboveOrEqual(startOfDay).count();
+  const orderNumber = editingSale ? editingSale.orderNumber : salesToday + 1;
+  const displayId = editingSale ? editingSale.displayId : generateSaleDisplayId(now, salesToday);
+
+  const previewItems: SaleItem[] = cart.map((line) => ({
+    id: generateId(),
+    saleId: editingSale?.id || 'preview',
+    productId: line.productId,
+    productName: line.name,
+    department: line.department,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    costPrice: 0,
+    total: line.unitPrice * line.quantity,
+  }));
+
+  if (editingSale) {
+    // Delta for editing
+    const previousPrinted = editingSale.printedDepartmentItems ?? {};
+    const deltaLines: DepartmentItemSnapshot[] = [];
+
+    for (const line of cart) {
+      const prevQty = previousPrinted[line.productId] ?? 0;
+      const additionalQty = line.quantity - prevQty;
+      if (additionalQty > 0) {
+        deltaLines.push({
+          productId: line.productId,
+          productName: line.name,
+          quantity: additionalQty,
+          department: line.department,
+        });
+      }
+    }
+
+    const { chaiItems, parhataItems } = partitionDepartmentItems(deltaLines);
+
+    const previewSale: Sale = {
+      ...editingSale,
+      takenBy: takenBy.trim() || editingSale.takenBy,
+      subtotal,
+      total,
+      updatedAt: now.getTime(),
+    };
+
+    return {
+      saleId: editingSale.id,
+      sale: previewSale,
+      items: previewItems,
+      deltaItems: deltaLines,
+      chaiItems,
+      parhataItems,
+      isSupplementary: true,
+    };
+  }
+
+  const { chaiItems, parhataItems } = partitionDepartmentItems(cart);
+
+  const previewSale: Sale = {
+    id: 'preview',
+    displayId,
+    orderNumber,
+    orderType,
+    status: 'PENDING',
+    takenBy: takenBy.trim() || (orderType === 'DINE_IN' ? 'Waiter' : 'Cashier'),
+    subtotal,
+    discount,
+    total,
+    paymentMethod: 'CASH',
+    amountReceived: null,
+    changeGiven: null,
+    voided: false,
+    printedDepartmentItems: {},
+    createdAt: now.getTime(),
+    updatedAt: now.getTime(),
+    syncStatus: 'PENDING',
+  };
+
+  return {
+    saleId: 'preview',
+    sale: previewSale,
+    items: previewItems,
+    chaiItems,
+    parhataItems,
+    isSupplementary: false,
+  };
+}
+
+/**
  * Creates a new order (either PENDING for Dine-In / Takeaway or directly PAID).
  */
 export async function createOrder(input: CreateOrderInput): Promise<OrderOperationResult> {

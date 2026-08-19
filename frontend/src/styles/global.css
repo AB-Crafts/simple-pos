@@ -46,6 +46,103 @@ button:disabled {
   opacity: 0.5;
 }
 
+/* Button Utilities */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn-large {
+  padding: 12px 22px;
+  font-size: 15px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2b313d;
+}
+
+.btn-secondary {
+  background: #f1f3f4;
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e8eaed;
+}
+
+.btn-success {
+  background: #1e8e5a;
+  color: #fff;
+  border-color: #1e8e5a;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #18774a;
+}
+
+.btn-danger {
+  background: #d93025;
+  color: #fff;
+  border-color: #d93025;
+}
+
+.btn-danger-outline {
+  background: transparent;
+  color: #d93025;
+  border: 1px solid #f4c7c3;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: #fce8e6;
+  border-color: #d93025;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: transparent;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #f1f3f4;
+  color: var(--ink);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #f1f3f4;
+}
+
 input,
 select {
   font-family: inherit;

@@ -15,7 +15,10 @@ interface Props {
   chaiItems?: DepartmentItem[];
   parhataItems?: DepartmentItem[];
   isSupplementary?: boolean;
-  onClose: () => void;
+  onConfirmDone?: () => void;
+  onCancelDiscard?: () => void;
+  onClose?: () => void;
+  confirming?: boolean;
 }
 
 export function SlipModal({
@@ -25,7 +28,10 @@ export function SlipModal({
   chaiItems = [],
   parhataItems = [],
   isSupplementary = false,
+  onConfirmDone,
+  onCancelDiscard,
   onClose,
+  confirming = false,
 }: Props) {
   // If this is an add-on edit, strictly use only newly added items
   const sourceItems: (SaleItem | DepartmentItem)[] =
@@ -87,9 +93,29 @@ export function SlipModal({
     }
   }
 
+  function handleCancel() {
+    if (onCancelDiscard) {
+      onCancelDiscard();
+    } else if (onClose) {
+      onClose();
+    }
+  }
+
+  function handleConfirm() {
+    if (onConfirmDone) {
+      onConfirmDone();
+    } else if (onClose) {
+      onClose();
+    }
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card slip-modal" style={{ maxWidth: hasChai && hasParhata ? '720px' : '420px' }} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={handleCancel}>
+      <div
+        className="modal-card slip-modal"
+        style={{ maxWidth: hasChai && hasParhata ? '720px' : '420px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
             <h3 className="modal-title">
@@ -99,14 +125,18 @@ export function SlipModal({
               Order #{sale.orderNumber} · {sale.orderType === 'DINE_IN' ? `Waiter: ${sale.takenBy}` : `Takeaway (${sale.takenBy})`}
             </span>
           </div>
-          <button className="btn-icon" onClick={onClose} aria-label="Close">
+          <button className="btn-icon" onClick={handleCancel} aria-label="Cancel and Discard">
             ✕
           </button>
         </div>
 
-        {isSupplementary && (
+        {isSupplementary ? (
           <div className="slip-alert-banner">
-            <strong>Add-On Slips:</strong> Only newly added items are included for each department.
+            <strong>Add-On Slips:</strong> Only newly added items are included for each department. Click "Done" to save changes.
+          </div>
+        ) : (
+          <div className="slip-alert-banner" style={{ background: '#fef7e0', color: '#b06000', borderColor: '#fce8b2' }}>
+            ℹ️ <strong>Pending Confirmation:</strong> Click <strong>"Done"</strong> below to send & list this order in Orders & Bills. Click <strong>"Cancel"</strong> to discard.
           </div>
         )}
 
@@ -158,13 +188,13 @@ export function SlipModal({
             {hasChai && hasParhata ? (
               <>
                 <button className="btn btn-primary btn-large" onClick={handlePrintBothAtOnce}>
-                  🖨️ Print 2 Slips at Once (Chai & Parhata)
+                  🖨️ Print 2 Slips at Once
                 </button>
                 <button className="btn btn-secondary" onClick={handlePrintChai}>
-                  Print Chai Only
+                  Print Chai
                 </button>
                 <button className="btn btn-secondary" onClick={handlePrintParhata}>
-                  Print Parhata Only
+                  Print Parhata
                 </button>
               </>
             ) : hasChai ? (
@@ -181,8 +211,21 @@ export function SlipModal({
           </div>
 
           <div className="slip-modal-actions__right">
-            <button className="btn btn-ghost" onClick={onClose}>
-              Done
+            <button
+              className="btn btn-danger-outline"
+              onClick={handleCancel}
+              disabled={confirming}
+              title="Discard this order without saving"
+            >
+              Cancel & Discard
+            </button>
+            <button
+              className="btn btn-success btn-large"
+              onClick={handleConfirm}
+              disabled={confirming}
+              title="Confirm and list in Orders & Bills"
+            >
+              {confirming ? 'Saving...' : '✅ Done'}
             </button>
           </div>
         </div>
