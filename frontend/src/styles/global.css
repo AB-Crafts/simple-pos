@@ -305,6 +305,94 @@ select {
   color: white;
 }
 
+.product-scroll-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Frequently Sold / Popular Products Section */
+.popular-products-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.popular-products-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+
+.popular-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.popular-icon {
+  font-size: 15px;
+}
+
+.popular-products-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.popular-products-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #fef7e0;
+  color: #b06000;
+  border: 1px solid #fce8b2;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.product-grid--popular {
+  margin-bottom: 2px;
+}
+
+.product-grid--popular .product-btn {
+  background: #fcfcfd;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.product-grid--popular .product-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #f4faf6;
+}
+
+/* Product Grid Divider */
+.product-grid-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 10px 0 4px 0;
+}
+
+.product-grid-divider::before,
+.product-grid-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px dashed var(--border);
+}
+
+.product-grid-divider__label {
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
