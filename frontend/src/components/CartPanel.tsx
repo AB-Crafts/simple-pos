@@ -41,12 +41,15 @@ export function CartPanel({
                 <span className="cart-line__name">{line.name}</span>
                 <span className="cart-line__unit">
                   {line.quantity} × {formatMoney(line.unitPrice)}
-                  {onEditPrice && (line.isCustomPrice || line.name.toLowerCase().includes('karak')) && (
+                  {onEditPrice &&
+                    (line.isCustomPrice ||
+                      line.name.toLowerCase().includes('karak') ||
+                      line.name.toLowerCase().includes('milk')) && (
                     <button
                       type="button"
                       className="cart-line__edit-btn"
                       onClick={() => onEditPrice(line)}
-                      title="Edit amount / price for Karak Chai"
+                      title={`Edit amount / price for ${line.name}`}
                       aria-label={`Edit price for ${line.name}`}
                     >
                       ✏️

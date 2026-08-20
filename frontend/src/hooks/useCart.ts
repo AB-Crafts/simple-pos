@@ -37,6 +37,7 @@ export function useCart() {
           productId: product.id,
           name,
           department: product.department,
+          unit: product.unit,
           unitPrice: price,
           quantity,
           isCustomPrice: isCustom,

@@ -42,8 +42,8 @@ export async function seedIfEmpty(): Promise<void> {
       });
     }
 
-    // Check if Fresh Milk exists
-    const milk = await db.products.filter((p) => p.name.toLowerCase().includes('milk')).first();
+    // Check if Fresh Milk exists and ensure unit is kg
+    const milk = await db.products.filter((p) => p.name.trim().toLowerCase() === 'milk' || p.name.toLowerCase() === 'fresh milk').first();
     if (!milk) {
       const chaiCat = await db.categories.filter((c) => c.name.toLowerCase().includes('chai')).first();
       await db.products.add({
@@ -51,11 +51,20 @@ export async function seedIfEmpty(): Promise<void> {
         name: 'Fresh Milk',
         categoryId: chaiCat?.id || '',
         department: 'CHAI',
-        costPrice: toPaisa(40),
-        sellingPrice: toPaisa(80),
+        unit: 'kg',
+        costPrice: toPaisa(160),
+        sellingPrice: toPaisa(200),
         stock: 100,
         active: true,
         createdAt: now,
+        updatedAt: now,
+      });
+    } else if (milk.unit !== 'kg' || milk.name !== 'Fresh Milk') {
+      await db.products.update(milk.id, {
+        name: 'Fresh Milk',
+        unit: 'kg',
+        costPrice: toPaisa(160),
+        sellingPrice: toPaisa(200),
         updatedAt: now,
       });
     }
@@ -78,10 +87,10 @@ export async function seedIfEmpty(): Promise<void> {
 
   const products = [
     // Chai Department
-    { name: 'Karak Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 35, sell: 70, stock: 200 },
-    { name: 'Doodh Patti', categoryId: chaiCatId, department: 'CHAI' as const, cost: 55, sell: 110, stock: 150 },
-    { name: 'Fresh Milk', categoryId: chaiCatId, department: 'CHAI' as const, cost: 40, sell: 80, stock: 100 },
-    { name: 'Elaichi Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 45, sell: 90, stock: 100 },
+    { name: 'Karak Chai', categoryId: chaiCatId, department: 'CHAI' as const, unit: 'cup', cost: 35, sell: 70, stock: 200 },
+    { name: 'Doodh Patti', categoryId: chaiCatId, department: 'CHAI' as const, unit: 'cup', cost: 55, sell: 110, stock: 150 },
+    { name: 'Fresh Milk', categoryId: chaiCatId, department: 'CHAI' as const, unit: 'kg', cost: 160, sell: 200, stock: 100 },
+    { name: 'Elaichi Chai', categoryId: chaiCatId, department: 'CHAI' as const, unit: 'cup', cost: 45, sell: 90, stock: 100 },
     { name: 'Kashmiri Chai', categoryId: chaiCatId, department: 'CHAI' as const, cost: 70, sell: 140, stock: 80 },
     { name: 'Green Tea / Qahwa', categoryId: chaiCatId, department: 'CHAI' as const, cost: 30, sell: 60, stock: 120 },
 

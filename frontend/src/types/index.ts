@@ -34,6 +34,7 @@ export interface Product {
   barcode?: string;
   categoryId: string | null;
   department?: Department;
+  unit?: string; // e.g. 'kg', 'cup', 'pcs'
   costPrice: Paisa;
   sellingPrice: Paisa;
   stock: number;
@@ -69,6 +70,7 @@ export interface SaleItem {
   productId: string;
   productName: string; // snapshot at time of sale
   department?: Department; // snapshot of department for KOT routing
+  unit?: string; // snapshot of unit e.g. 'kg'
   quantity: number;
   unitPrice: Paisa; // snapshot at time of sale (selling price)
   costPrice: Paisa; // snapshot at time of sale (for COGS in reports)
@@ -122,9 +124,11 @@ export interface CartLine {
   productId: string;
   name: string;
   department?: Department;
+  unit?: string;
   unitPrice: Paisa;
   quantity: number;
   isCustomPrice?: boolean;
 }
+
 
 

@@ -3140,6 +3140,15 @@ select {
   color: var(--ink-soft);
 }
 
+.custom-kg-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
 .custom-amount-input-wrap {
   display: flex;
   align-items: center;

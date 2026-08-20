@@ -11,8 +11,14 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
   const lowStock = product.stock <= 5;
   const outOfStock = product.stock <= 0;
 
-  const isKarakChai =
-    product.name.toLowerCase().includes('karak');
+  const isCustomizable =
+    product.name.toLowerCase().includes('karak') ||
+    product.name.toLowerCase().includes('milk');
+
+  const priceDisplay =
+    product.unit === 'kg'
+      ? `${formatMoney(product.sellingPrice)}/kg`
+      : formatMoney(product.sellingPrice);
 
   return (
     <div
@@ -26,12 +32,12 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
           onClick(product);
         }
       }}
-      aria-label={`Add ${product.name}, ${formatMoney(product.sellingPrice)}`}
+      aria-label={`Add ${product.name}, ${priceDisplay}`}
     >
       <span className="product-btn__name">{product.name}</span>
       <div className="product-btn__bottom-row">
-        <span className="product-btn__price">{formatMoney(product.sellingPrice)}</span>
-        {!outOfStock && isKarakChai && onCustomAmount && (
+        <span className="product-btn__price">{priceDisplay}</span>
+        {!outOfStock && isCustomizable && onCustomAmount && (
           <button
             type="button"
             className="product-btn__custom-action"
@@ -39,8 +45,8 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
               e.stopPropagation();
               onCustomAmount(product);
             }}
-            title="Set custom amount for Karak Chai"
-            aria-label="Set custom amount for Karak Chai"
+            title={`Set custom amount for ${product.name}`}
+            aria-label={`Set custom amount for ${product.name}`}
           >
             ✏️ Custom
           </button>
