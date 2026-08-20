@@ -11,9 +11,7 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
   const lowStock = product.stock <= 5;
   const outOfStock = product.stock <= 0;
 
-  const isChaiOrCustomizable =
-    product.department === 'CHAI' ||
-    product.name.toLowerCase().includes('chai') ||
+  const isKarakChai =
     product.name.toLowerCase().includes('karak');
 
   return (
@@ -33,7 +31,7 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
       <span className="product-btn__name">{product.name}</span>
       <div className="product-btn__bottom-row">
         <span className="product-btn__price">{formatMoney(product.sellingPrice)}</span>
-        {!outOfStock && isChaiOrCustomizable && onCustomAmount && (
+        {!outOfStock && isKarakChai && onCustomAmount && (
           <button
             type="button"
             className="product-btn__custom-action"
@@ -41,8 +39,8 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
               e.stopPropagation();
               onCustomAmount(product);
             }}
-            title={`Set custom amount for ${product.name}`}
-            aria-label={`Set custom amount for ${product.name}`}
+            title="Set custom amount for Karak Chai"
+            aria-label="Set custom amount for Karak Chai"
           >
             ✏️ Custom
           </button>
