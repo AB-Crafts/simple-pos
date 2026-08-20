@@ -118,10 +118,13 @@ export interface Setting {
 
 /** Item currently sitting in the cart on the POS screen. */
 export interface CartLine {
+  id?: string;
   productId: string;
   name: string;
   department?: Department;
   unitPrice: Paisa;
   quantity: number;
+  isCustomPrice?: boolean;
 }
+
 

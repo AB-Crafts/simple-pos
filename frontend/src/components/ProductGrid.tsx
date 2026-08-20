@@ -6,9 +6,10 @@ import { ProductButton } from './ProductButton';
 
 interface Props {
   onAddProduct: (product: Product) => void;
+  onCustomAmount?: (product: Product) => void;
 }
 
-export function ProductGrid({ onAddProduct }: Props) {
+export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | 'all'>('all');
 
@@ -140,7 +141,12 @@ export function ProductGrid({ onAddProduct }: Props) {
 
             <div className="product-grid product-grid--popular">
               {popularProducts.map((p) => (
-                <ProductButton key={p.id} product={p} onClick={onAddProduct} />
+                <ProductButton
+                  key={p.id}
+                  product={p}
+                  onClick={onAddProduct}
+                  onCustomAmount={onCustomAmount}
+                />
               ))}
             </div>
 
@@ -156,7 +162,12 @@ export function ProductGrid({ onAddProduct }: Props) {
         {/* Remaining / All Products Grid */}
         <div className="product-grid">
           {otherProducts.map((p) => (
-            <ProductButton key={p.id} product={p} onClick={onAddProduct} />
+            <ProductButton
+              key={p.id}
+              product={p}
+              onClick={onAddProduct}
+              onCustomAmount={onCustomAmount}
+            />
           ))}
         </div>
 

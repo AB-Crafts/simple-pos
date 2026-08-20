@@ -38,6 +38,10 @@ export interface OrderOperationResult {
   isSupplementary?: boolean;
 }
 
+function getDepartmentItemKey(line: { productId: string; unitPrice?: number; name?: string }): string {
+  return `${line.productId}_${line.unitPrice ?? 0}_${line.name ?? ''}`;
+}
+
 /**
  * Categorizes cart lines into Chai and Parhata departments.
  */
@@ -102,7 +106,8 @@ export async function prepareOrderPreview(
     const deltaLines: DepartmentItemSnapshot[] = [];
 
     for (const line of cart) {
-      const prevQty = previousPrinted[line.productId] ?? 0;
+      const itemKey = getDepartmentItemKey(line);
+      const prevQty = previousPrinted[itemKey] ?? previousPrinted[line.productId] ?? 0;
       const additionalQty = line.quantity - prevQty;
       if (additionalQty > 0) {
         deltaLines.push({
@@ -200,7 +205,9 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderOperati
   // Build printed department items tracker for all items on initial creation
   const printedDepartmentItems: Record<string, number> = {};
   for (const line of cart) {
-    printedDepartmentItems[line.productId] = line.quantity;
+    const itemKey = getDepartmentItemKey(line);
+    printedDepartmentItems[itemKey] = (printedDepartmentItems[itemKey] ?? 0) + line.quantity;
+    printedDepartmentItems[line.productId] = (printedDepartmentItems[line.productId] ?? 0) + line.quantity;
   }
 
   const newSale: Sale = {
@@ -323,7 +330,8 @@ export async function updatePendingOrder(
   const deltaLines: DepartmentItemSnapshot[] = [];
 
   for (const line of updatedCart) {
-    const prevQty = previousPrinted[line.productId] ?? 0;
+    const itemKey = getDepartmentItemKey(line);
+    const prevQty = previousPrinted[itemKey] ?? previousPrinted[line.productId] ?? 0;
     const additionalQty = line.quantity - prevQty;
 
     if (additionalQty > 0) {
@@ -335,7 +343,8 @@ export async function updatePendingOrder(
       });
     }
 
-    newPrinted[line.productId] = Math.max(prevQty, line.quantity);
+    newPrinted[itemKey] = Math.max(previousPrinted[itemKey] ?? 0, line.quantity);
+    newPrinted[line.productId] = Math.max(previousPrinted[line.productId] ?? 0, line.quantity);
   }
 
   const updatedSale: Sale = {

@@ -4,6 +4,7 @@ import { CartPanel } from '../components/CartPanel';
 import { PaymentPanel } from '../components/PaymentPanel';
 import { SlipModal } from '../components/SlipModal';
 import { SettleModal } from '../components/SettleModal';
+import { CustomAmountModal } from '../components/CustomAmountModal';
 import { useCart } from '../hooks/useCart';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import {
@@ -14,7 +15,7 @@ import {
 } from '../services/salesService';
 import { db } from '../database/db';
 import { generateId } from '../utils/id';
-import type { OrderType, PaymentMethod, Sale, SaleItem, Waiter } from '../types';
+import type { CartLine, OrderType, Paisa, PaymentMethod, Product, Sale, SaleItem, Waiter } from '../types';
 import { formatMoney } from '../utils/money';
 
 interface Props {
@@ -39,6 +40,10 @@ export function POSPage({
   const [saving, setSaving] = useState(false);
   const [slipModalResult, setSlipModalResult] = useState<OrderOperationResult | null>(null);
   const [settleModalTarget, setSettleModalTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
+  const [customModalTarget, setCustomModalTarget] = useState<{
+    product: Product;
+    line?: CartLine;
+  } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   // Barcode scanner integration
@@ -227,6 +232,48 @@ export function POSPage({
     setToast('Cancelled order editing');
   }
 
+  // Open custom amount modal for a product (e.g. Karak Chai)
+  function handleOpenCustomModal(product: Product) {
+    setCustomModalTarget({ product });
+  }
+
+  // Edit price of an existing cart line
+  async function handleEditCartLinePrice(line: CartLine) {
+    const product = (await db.products.get(line.productId)) || {
+      id: line.productId,
+      name: line.name,
+      department: line.department,
+      sellingPrice: line.unitPrice,
+      costPrice: 0,
+      stock: 100,
+      active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      categoryId: null,
+    };
+    setCustomModalTarget({ product, line });
+  }
+
+  // Confirm custom amount from modal
+  function handleConfirmCustomAmount(
+    product: Product,
+    unitPrice: Paisa,
+    customName?: string,
+    quantity = 1
+  ) {
+    if (customModalTarget?.line) {
+      // Editing existing line
+      const lineKey = customModalTarget.line.id || customModalTarget.line.productId;
+      cart.updateLinePrice(lineKey, unitPrice, customName);
+      setToast(`Updated ${customName || product.name} (${formatMoney(unitPrice)})`);
+    } else {
+      // Adding new custom amount line
+      cart.addProduct(product, unitPrice, customName, quantity);
+      setToast(`Added ${customName || product.name} (${formatMoney(unitPrice * quantity)})`);
+    }
+    setCustomModalTarget(null);
+  }
+
   return (
     <div className="pos-page">
       <div className="pos-page__main">
@@ -306,7 +353,13 @@ export function POSPage({
           </div>
         )}
 
-        <ProductGrid onAddProduct={cart.addProduct} />
+        <ProductGrid
+          onAddProduct={(p) => {
+            cart.addProduct(p);
+            setToast(`Added ${p.name}`);
+          }}
+          onCustomAmount={handleOpenCustomModal}
+        />
       </div>
 
       {/* POS Sidebar: Cart & Actions */}
@@ -317,6 +370,7 @@ export function POSPage({
           onIncrement={cart.increment}
           onDecrement={cart.decrement}
           onRemove={cart.removeLine}
+          onEditPrice={handleEditCartLinePrice}
           onClear={cart.clear}
         />
 
@@ -438,6 +492,18 @@ export function POSPage({
             loadPendingCount();
           }}
           onClose={() => setSettleModalTarget(null)}
+        />
+      )}
+
+      {/* Custom Amount Modal (for Karak Chai and other custom orders) */}
+      {customModalTarget && (
+        <CustomAmountModal
+          product={customModalTarget.product}
+          initialUnitPrice={customModalTarget.line?.unitPrice}
+          initialQuantity={customModalTarget.line?.quantity || 1}
+          initialName={customModalTarget.line?.name}
+          onConfirm={handleConfirmCustomAmount}
+          onClose={() => setCustomModalTarget(null)}
         />
       )}
 
