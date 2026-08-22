@@ -60,7 +60,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-header__title">Simple POS · Bany Pyala</span>
+        <span className="app-header__title">Banu Pyala Cafe</span>
         <div className="app-header__right">
           <span className="app-header__clock">
             {clock.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })} ·{' '}

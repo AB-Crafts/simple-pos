@@ -27,7 +27,7 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
 
   return (
     <div
-      className={`product-btn ${outOfStock ? 'product-btn--disabled' : ''}`}
+      className={`product-btn ${outOfStock ? 'product-btn--disabled' : ''} ${isCustomizable ? 'product-btn--customizable' : ''}`}
       onClick={() => !outOfStock && onClick(product)}
       role="button"
       tabIndex={outOfStock ? -1 : 0}
@@ -39,7 +39,14 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
       }}
       aria-label={`Add ${product.name}, ${priceDisplay}`}
     >
-      <span className="product-btn__name">{product.name}</span>
+      <div className="product-btn__top-row">
+        <span className="product-btn__name">{product.name}</span>
+        {outOfStock && <span className="product-btn__badge product-btn__badge--out">OUT</span>}
+        {!outOfStock && lowStock && (
+          <span className="product-btn__badge product-btn__badge--low">LOW STOCK</span>
+        )}
+      </div>
+
       <div className="product-btn__bottom-row">
         <span className="product-btn__price">{priceDisplay}</span>
         {!outOfStock && isCustomizable && onCustomAmount && (
@@ -58,15 +65,10 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
             aria-label={`Set custom amount for ${product.name}`}
           >
             <span className="custom-action-icon">{isMilk ? '⚖️' : '☕'}</span>
-            <span>Custom</span>
+            <span className="custom-action-text">Custom</span>
           </button>
         )}
       </div>
-
-      {outOfStock && <span className="product-btn__badge product-btn__badge--out">OUT OF STOCK</span>}
-      {!outOfStock && lowStock && (
-        <span className="product-btn__badge product-btn__badge--low">LOW STOCK</span>
-      )}
     </div>
   );
 }
