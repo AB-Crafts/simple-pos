@@ -1,14 +1,249 @@
 import { db } from './db';
 import { generateId } from '../utils/id';
 import { toPaisa } from '../utils/money';
+import type { Department, Product, Category } from '../types';
 
 /**
- * Seeds a handful of sample categories/products on first run only,
- * so a new install of the app has a usable POS screen immediately
- * instead of opening to an empty grid. Safe to call every app start —
- * it's a no-op once products already exist.
+ * Normalizes product name for deduplication comparison.
  */
-export async function seedIfEmpty(): Promise<void> {
+export function normalizeProductName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Normalizes category name for deduplication comparison.
+ */
+export function normalizeCategoryName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Returns the proper department based on product name and existing department.
+ */
+export function inferDepartment(name: string, currentDept?: Department): Department {
+  const n = normalizeProductName(name);
+  if (
+    n.includes('chai') ||
+    n.includes('tea') ||
+    n.includes('doodh') ||
+    n.includes('milk') ||
+    n.includes('qahwa') ||
+    n.includes('kahwa') ||
+    n.includes('elaichi')
+  ) {
+    return 'CHAI';
+  }
+  if (
+    n.includes('parhata') ||
+    n.includes('paratha') ||
+    n.includes('lacha') ||
+    n.includes('roti')
+  ) {
+    return 'PARHATA';
+  }
+  if (currentDept === 'CHAI' || currentDept === 'PARHATA') {
+    return currentDept;
+  }
+  return 'GENERAL';
+}
+
+/**
+ * Deduplicates categories in Dexie IndexedDB and standardizes canonical categories:
+ * - 'Chai'
+ * - 'Parhata'
+ * - 'Cold Drinks'
+ * - 'Snacks & Extras'
+ *
+ * Any duplicate category objects are merged, products remapped, and duplicates deleted.
+ */
+export async function deduplicateAndAlignCategories(): Promise<{
+  chaiCatId: string;
+  parhataCatId: string;
+  drinksCatId: string;
+  snacksCatId: string;
+}> {
+  const now = Date.now();
+  const allCategories = await db.categories.toArray();
+
+  // 1. Group categories by normalized name
+  const catGroups = new Map<string, Category[]>();
+  for (const cat of allCategories) {
+    const norm = normalizeCategoryName(cat.name);
+    if (!catGroups.has(norm)) {
+      catGroups.set(norm, []);
+    }
+    catGroups.get(norm)!.push(cat);
+  }
+
+  // 2. Deduplicate groups with exact same normalized name
+  for (const [, group] of catGroups.entries()) {
+    if (group.length > 1) {
+      // Pick canonical: oldest created or first
+      group.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      const canonical = group[0];
+      const duplicates = group.slice(1);
+
+      for (const dup of duplicates) {
+        // Remap any products pointing to duplicate category
+        const prodsWithDup = await db.products.where('categoryId').equals(dup.id).toArray();
+        for (const p of prodsWithDup) {
+          await db.products.update(p.id, { categoryId: canonical.id });
+        }
+        await db.categories.delete(dup.id);
+      }
+    }
+  }
+
+  // 3. Re-fetch cleaned categories
+  let remainingCats = await db.categories.toArray();
+
+  // Helper to ensure canonical category exists with exact title
+  async function ensureCategory(standardName: string, keywords: string[]): Promise<string> {
+    let match = remainingCats.find((c) => {
+      const n = normalizeCategoryName(c.name);
+      return keywords.some((k) => n.includes(k));
+    });
+
+    if (!match) {
+      const id = generateId();
+      match = { id, name: standardName, createdAt: now };
+      await db.categories.add(match);
+      remainingCats.push(match);
+    } else if (match.name !== standardName) {
+      await db.categories.update(match.id, { name: standardName });
+      match.name = standardName;
+    }
+    return match.id;
+  }
+
+  const chaiCatId = await ensureCategory('Chai', ['chai', 'tea']);
+  const parhataCatId = await ensureCategory('Parhata', ['parhata', 'paratha']);
+  const drinksCatId = await ensureCategory('Cold Drinks', ['cold drink', 'drink', 'beverage']);
+  const snacksCatId = await ensureCategory('Snacks & Extras', ['snack', 'extra']);
+
+  // 4. Clean up any remaining secondary duplicates across standard names
+  const finalCats = await db.categories.toArray();
+  const seenCanonical = new Map<string, string>(); // normName -> id
+  for (const cat of finalCats) {
+    const norm = normalizeCategoryName(cat.name);
+    if (seenCanonical.has(norm)) {
+      const canonId = seenCanonical.get(norm)!;
+      const prodsWithDup = await db.products.where('categoryId').equals(cat.id).toArray();
+      for (const p of prodsWithDup) {
+        await db.products.update(p.id, { categoryId: canonId });
+      }
+      await db.categories.delete(cat.id);
+    } else {
+      seenCanonical.set(norm, cat.id);
+    }
+  }
+
+  return { chaiCatId, parhataCatId, drinksCatId, snacksCatId };
+}
+
+/**
+ * Deduplicates products in Dexie IndexedDB and aligns departments & categories.
+ * Safe to run on every startup: cleans up any duplicate entries and preserves sales history.
+ */
+export async function deduplicateAndAlignProducts(): Promise<void> {
+  const now = Date.now();
+
+  // Deduplicate categories first and get canonical category IDs
+  const { chaiCatId, parhataCatId, drinksCatId, snacksCatId } = await deduplicateAndAlignCategories();
+
+  const allProducts = await db.products.toArray();
+
+  // 1. Group products by normalized name to find duplicates
+  const groups = new Map<string, Product[]>();
+  for (const p of allProducts) {
+    const norm = normalizeProductName(p.name);
+    if (!groups.has(norm)) {
+      groups.set(norm, []);
+    }
+    groups.get(norm)!.push(p);
+  }
+
+  for (const [, prods] of groups.entries()) {
+    if (prods.length > 1) {
+      // Pick best canonical product:
+      // Prefer active > has department > has valid price > most recently updated
+      prods.sort((a, b) => {
+        if (a.active !== b.active) return a.active ? -1 : 1;
+        if (a.department && !b.department) return -1;
+        if (!a.department && b.department) return 1;
+        return (b.updatedAt || 0) - (a.updatedAt || 0);
+      });
+
+      const canonical = prods[0];
+      const duplicates = prods.slice(1);
+
+      // Reassign saleItems referencing duplicates to canonical product ID
+      for (const dup of duplicates) {
+        const saleItems = await db.saleItems.where('productId').equals(dup.id).toArray();
+        for (const item of saleItems) {
+          await db.saleItems.update(item.id, { productId: canonical.id });
+        }
+        await db.products.delete(dup.id);
+      }
+    }
+  }
+
+  // 2. Normalize departments, categories, and units on all remaining products
+  const remainingProducts = await db.products.toArray();
+  for (const p of remainingProducts) {
+    const targetDept = inferDepartment(p.name, p.department);
+    let targetCatId = p.categoryId;
+
+    if (!targetCatId) {
+      if (targetDept === 'CHAI') targetCatId = chaiCatId;
+      else if (targetDept === 'PARHATA') targetCatId = parhataCatId;
+      else if (
+        p.name.toLowerCase().includes('water') ||
+        p.name.toLowerCase().includes('coke') ||
+        p.name.toLowerCase().includes('sprite') ||
+        p.name.toLowerCase().includes('drink')
+      ) {
+        targetCatId = drinksCatId;
+      } else {
+        targetCatId = snacksCatId;
+      }
+    }
+
+    let targetUnit = p.unit;
+    if (p.name.toLowerCase().includes('milk')) {
+      targetUnit = 'kg';
+    }
+
+    if (p.department !== targetDept || p.categoryId !== targetCatId || p.unit !== targetUnit) {
+      await db.products.update(p.id, {
+        department: targetDept,
+        categoryId: targetCatId,
+        unit: targetUnit,
+        updatedAt: now,
+      });
+    }
+  }
+}
+
+let seedingPromise: Promise<void> | null = null;
+
+/**
+ * Seeds sample categories/products if database is empty,
+ * and runs deduplication and department alignment.
+ * Singleton promise prevents race conditions in React StrictMode.
+ */
+export function seedIfEmpty(): Promise<void> {
+  if (!seedingPromise) {
+    seedingPromise = runSeedIfEmpty().catch((err) => {
+      seedingPromise = null;
+      console.error('Failed to seed/align database:', err);
+      throw err;
+    });
+  }
+  return seedingPromise;
+}
+
+async function runSeedIfEmpty(): Promise<void> {
   const now = Date.now();
 
   // Seed default waiters if none exist
@@ -24,51 +259,7 @@ export async function seedIfEmpty(): Promise<void> {
 
   const existing = await db.products.count();
   if (existing > 0) {
-    // Check if Lacha Parhata exists
-    const lacha = await db.products.filter((p) => p.name.toLowerCase().includes('lacha')).first();
-    if (!lacha) {
-      const parhataCat = await db.categories.filter((c) => c.name.toLowerCase().includes('parhata')).first();
-      await db.products.add({
-        id: generateId(),
-        name: 'Lacha Parhata',
-        categoryId: parhataCat?.id || '',
-        department: 'PARHATA',
-        costPrice: toPaisa(50),
-        sellingPrice: toPaisa(100),
-        stock: 150,
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    // Check if Fresh Milk exists and ensure unit is kg
-    const milk = await db.products.filter((p) => p.name.trim().toLowerCase() === 'milk' || p.name.toLowerCase() === 'fresh milk').first();
-    if (!milk) {
-      const chaiCat = await db.categories.filter((c) => c.name.toLowerCase().includes('chai')).first();
-      await db.products.add({
-        id: generateId(),
-        name: 'Fresh Milk',
-        categoryId: chaiCat?.id || '',
-        department: 'CHAI',
-        unit: 'kg',
-        costPrice: toPaisa(160),
-        sellingPrice: toPaisa(200),
-        stock: 100,
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-    } else if (milk.unit !== 'kg' || milk.name !== 'Fresh Milk') {
-      await db.products.update(milk.id, {
-        name: 'Fresh Milk',
-        unit: 'kg',
-        costPrice: toPaisa(160),
-        sellingPrice: toPaisa(200),
-        updatedAt: now,
-      });
-    }
-
+    await deduplicateAndAlignProducts();
     return;
   }
 
@@ -123,4 +314,5 @@ export async function seedIfEmpty(): Promise<void> {
   }));
 
   await db.products.bulkAdd(products);
+  await deduplicateAndAlignProducts();
 }

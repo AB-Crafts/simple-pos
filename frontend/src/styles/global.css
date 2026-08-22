@@ -263,8 +263,18 @@ select {
   overflow: hidden;
 }
 
+.pos-page__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
 .product-panel {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -375,7 +385,7 @@ select {
   display: flex;
   align-items: center;
   text-align: center;
-  margin: 10px 0 4px 0;
+  margin: 14px 0 10px 0;
 }
 
 .product-grid-divider::before,
@@ -391,6 +401,84 @@ select {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--ink-soft);
+}
+
+/* Categorized Menu Flow in POS */
+.categorized-menu-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.menu-category-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.menu-category-header--chai {
+  background: #fff8f0;
+  border-color: #ffedd5;
+}
+
+.menu-category-header--parhata {
+  background: #fefce8;
+  border-color: #fef9c3;
+}
+
+.menu-category-header--general {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.menu-category-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-category-icon {
+  font-size: 16px;
+}
+
+.menu-category-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+}
+
+.menu-category-header--chai .menu-category-title {
+  color: #9a3412;
+}
+
+.menu-category-header--parhata .menu-category-title {
+  color: #854d0e;
+}
+
+.menu-category-header--general .menu-category-title {
+  color: #334155;
+}
+
+.menu-category-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
   color: var(--ink-soft);
 }
 
@@ -444,22 +532,53 @@ select {
 }
 
 .product-btn__custom-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 8px;
+  line-height: 1;
+  padding: 4px 8px;
   border-radius: 6px;
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
+  background: #f0fdf4;
+  color: var(--accent);
+  border: 1px solid #bbf7d0;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  user-select: none;
 }
 
 .product-btn__custom-action:hover {
-  background: #2563eb;
+  background: var(--accent);
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(47, 111, 79, 0.2);
+}
+
+.product-btn__custom-action:active {
+  transform: scale(0.96);
+}
+
+.product-btn__custom-action--milk {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.product-btn__custom-action--milk:hover {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+  box-shadow: 0 2px 4px rgba(30, 41, 59, 0.2);
+}
+
+.custom-action-icon {
+  font-size: 11px;
+  display: inline-block;
+  line-height: 1;
 }
 
 .product-btn--disabled {
@@ -499,13 +618,15 @@ select {
    Cart + payment sidebar
 --------------------------------------------------------------------- */
 .pos-page__sidebar {
-  width: 360px;
+  width: 380px;
+  max-width: 420px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border-left: 1px solid var(--border);
-  overflow-y: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 .pos-page__reprint {
@@ -2362,21 +2483,6 @@ select {
   color: var(--ink-soft);
 }
 
-/* ---------------------------------------------------------------------
-   Responsive: tablet
---------------------------------------------------------------------- */
-@media (max-width: 900px) {
-  .pos-page {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .pos-page__sidebar {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid var(--border);
-  }
-}
 
 /* =====================================================================
    Departmental Slip, Orders, and Waiter Management Styles
@@ -3378,4 +3484,289 @@ select {
 
 .btn-add-custom-order {
   flex: 1;
+}
+
+/* =====================================================================
+   Comprehensive Responsive Design System
+   (Desktop Ultra-Wide, Laptop, Tablet, Mobile)
+===================================================================== */
+
+/* Global Utilities for Fluid Layouts */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.orders-page,
+.products-page,
+.sales-page,
+.expenses-page-modern,
+.moneyflow-page-modern,
+.reports-page-modern {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Medium Laptops & Landscape Tablets (<= 1100px) */
+@media (max-width: 1100px) {
+  .pos-page__sidebar {
+    width: 340px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Tablets & Compact Screens (<= 860px) */
+@media (max-width: 860px) {
+  .pos-page {
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  .pos-page__main {
+    flex: none;
+    height: auto;
+    min-height: auto;
+    overflow: visible;
+    width: 100%;
+  }
+
+  .product-panel {
+    overflow-y: visible;
+    height: auto;
+    padding: 14px;
+  }
+
+  .pos-page__sidebar {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border-left: none;
+    border-top: 2px solid var(--border);
+    overflow: visible;
+  }
+
+  .cart-panel {
+    max-height: 380px;
+    padding: 14px 14px 0;
+  }
+
+  .pos-action-panel {
+    padding: 12px 14px 16px;
+  }
+
+  .orders-page,
+  .products-page,
+  .sales-page,
+  .expenses-page-modern,
+  .moneyflow-page-modern,
+  .reports-page-modern {
+    padding: 16px;
+  }
+
+  .orders-page__header,
+  .products-page__header,
+  .expenses-page__header,
+  .moneyflow-page__header,
+  .reports-page__header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .orders-metrics-grid,
+  .expenses-metrics-grid,
+  .reports-metrics-grid,
+  .moneyflow-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .orders-search,
+  .search-input {
+    max-width: 100%;
+  }
+}
+
+/* Mobile Screens (<= 600px) */
+@media (max-width: 600px) {
+  .app-header {
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .app-header__title {
+    font-size: 15px;
+  }
+
+  .app-header__right {
+    gap: 10px;
+    font-size: 11px;
+  }
+
+  .app-header__clock {
+    display: none;
+  }
+
+  /* Bottom Navigation */
+  .nav-bar {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 4px;
+  }
+
+  .nav-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    font-size: 12px;
+    padding: 10px 8px;
+    white-space: nowrap;
+  }
+
+  /* POS Top Bar */
+  .pos-order-bar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .order-type-switch {
+    width: 100%;
+  }
+
+  .type-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .waiter-select-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .waiter-dropdown {
+    flex: 1;
+  }
+
+  .btn-pending-badge {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Products Grid */
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+  }
+
+  .product-btn {
+    padding: 10px 8px;
+    min-height: 72px;
+    gap: 4px;
+  }
+
+  .product-btn__name {
+    font-size: 13px;
+  }
+
+  .product-btn__price {
+    font-size: 12px;
+  }
+
+  .product-btn__custom-action {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .category-tabs {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-tab {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  /* Filter Tabs */
+  .filter-tabs {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .filter-tab {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  /* Metrics & Forms */
+  .orders-metrics-grid,
+  .expenses-metrics-grid,
+  .reports-metrics-grid,
+  .moneyflow-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .form-grid-2,
+  .dept-radio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    padding: 8px;
+  }
+
+  .modal-card {
+    max-width: 100%;
+    max-height: 96vh;
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .custom-modal-middle-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-presets-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

@@ -11,27 +11,19 @@ interface Props {
   onClose: () => void;
 }
 
-const CHAI_PRESETS = [30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300, 500];
+const CHAI_PRESETS = [90, 100, 110, 120, 130, 140, 150];
 
 const MILK_WEIGHT_PRESETS = [
   { label: '0.25 kg (Paao)', weight: 0.25 },
   { label: '0.5 kg (½ kg)', weight: 0.5 },
   { label: '0.75 kg (¾ kg)', weight: 0.75 },
   { label: '1 kg', weight: 1.0 },
-  { label: '1.5 kg', weight: 1.5 },
-  { label: '2 kg', weight: 2.0 },
-  { label: '2.5 kg', weight: 2.5 },
-  { label: '3 kg', weight: 3.0 },
-  { label: '5 kg', weight: 5.0 },
 ];
-
-const MILK_RUPEE_PRESETS = [50, 80, 100, 150, 200, 250, 300, 400, 500, 1000];
 
 export function CustomAmountModal({
   product,
   initialUnitPrice,
   initialQuantity = 1,
-  initialName,
   onConfirm,
   onClose,
 }: Props) {
@@ -40,20 +32,14 @@ export function CustomAmountModal({
     product.name.toLowerCase().includes('milk');
 
   const standardRateRupees = toRupees(product.sellingPrice) || 200;
-  const defaultRupees = initialUnitPrice !== undefined ? toRupees(initialUnitPrice) : standardRateRupees;
+  const defaultRupees =
+    initialUnitPrice !== undefined
+      ? toRupees(initialUnitPrice)
+      : isKgProduct
+      ? standardRateRupees
+      : 90;
   const [rupeesStr, setRupeesStr] = useState<string>(defaultRupees > 0 ? String(defaultRupees) : '');
   const [quantity, setQuantity] = useState<number>(initialQuantity > 0 ? initialQuantity : 1);
-
-  const defaultNote = (() => {
-    if (!initialName) return '';
-    const match = initialName.match(/\((.*?)\)/);
-    if (match) {
-      if (/^Rs\.\d+/i.test(match[1])) return '';
-      return match[1];
-    }
-    return initialName !== product.name ? initialName : '';
-  })();
-  const [customNote, setCustomNote] = useState<string>(defaultNote);
 
   const currentRupees = parseFloat(rupeesStr) || 0;
   const currentTotalPaisa = toPaisa(currentRupees * quantity);
@@ -74,28 +60,20 @@ export function CustomAmountModal({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentRupees, quantity, customNote]);
+  }, [currentRupees, quantity]);
 
   function handlePresetClick(amount: number) {
     setRupeesStr(String(amount));
-    if (isKgProduct) {
-      const kg = amount / standardRateRupees;
-      const formattedKg = kg % 1 === 0 ? kg.toFixed(0) : kg.toFixed(2);
-      setCustomNote(`${formattedKg} kg`);
-    }
   }
 
   function handleWeightPresetClick(weight: number) {
     const calculatedAmount = Math.round(weight * standardRateRupees);
     setRupeesStr(String(calculatedAmount));
-    const formattedKg = weight % 1 === 0 ? weight.toFixed(0) : String(weight);
-    setCustomNote(`${formattedKg} kg`);
   }
 
   function handleNumpad(key: string) {
     if (key === 'C') {
       setRupeesStr('');
-      setCustomNote('');
     } else if (key === 'BACK') {
       setRupeesStr((prev) => prev.slice(0, -1));
     } else if (key === '00') {
@@ -112,7 +90,12 @@ export function CustomAmountModal({
   }
 
   function handleSubmit() {
-    if (currentRupees <= 0) {
+    if (!isKgProduct) {
+      if (currentRupees < 90 || currentRupees > 150) {
+        alert('Custom Chai amount must be between Rs. 90 and Rs. 150');
+        return;
+      }
+    } else if (currentRupees <= 0) {
       alert('Please enter a valid amount greater than 0');
       return;
     }
@@ -120,11 +103,9 @@ export function CustomAmountModal({
     const unitPricePaisa = toPaisa(currentRupees);
     let finalName = product.name;
 
-    if (customNote.trim()) {
-      finalName = `${product.name} (${customNote.trim()})`;
-    } else if (isKgProduct && calculatedKg > 0) {
+    if (isKgProduct && calculatedKg > 0) {
       const formattedKg = calculatedKg % 1 === 0 ? calculatedKg.toFixed(0) : calculatedKg.toFixed(2);
-      finalName = `${product.name} (${formattedKg} kg - Rs.${currentRupees})`;
+      finalName = `${product.name} (${formattedKg} kg)`;
     } else if (unitPricePaisa !== product.sellingPrice) {
       finalName = `${product.name} (Rs.${currentRupees})`;
     }
@@ -147,7 +128,9 @@ export function CustomAmountModal({
               {isKgProduct ? '🥛' : '☕'} Custom Amount: {product.name}
             </h3>
             <span className="modal-subtitle">
-              Standard Rate: {formatMoney(product.sellingPrice)} {isKgProduct ? '/ kg' : '/ cup'}
+              {isKgProduct
+                ? `Standard Rate: ${formatMoney(product.sellingPrice)} / kg`
+                : `Standard Rate: ${formatMoney(product.sellingPrice)} / cup • Custom Range: Rs.90 to Rs.150`}
             </span>
           </div>
           <button className="btn-icon" onClick={onClose} aria-label="Close modal">
@@ -159,11 +142,11 @@ export function CustomAmountModal({
         <div className="custom-amount-display-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label className="custom-amount-label" htmlFor="custom-rupees-input">
-              {isKgProduct ? 'Milk Amount (Rs.)' : 'Chai Amount (Rs.)'}
+              {isKgProduct ? 'Milk Amount (Rs.)' : 'Chai Custom Amount (Rs. 90 – 150)'}
             </label>
             {isKgProduct && calculatedKg > 0 && (
               <span className="custom-kg-badge">
-                ⚖️ Approx {calculatedKg.toFixed(2)} kg
+                ⚖️ Approx {calculatedKg % 1 === 0 ? calculatedKg.toFixed(0) : calculatedKg.toFixed(2)} kg
               </span>
             )}
           </div>
@@ -172,25 +155,26 @@ export function CustomAmountModal({
             <input
               id="custom-rupees-input"
               type="number"
-              min="1"
+              min={isKgProduct ? 1 : 90}
+              max={isKgProduct ? undefined : 150}
               step="1"
               className="custom-amount-input"
               value={rupeesStr}
               onChange={(e) => setRupeesStr(e.target.value)}
-              placeholder="0"
+              placeholder={isKgProduct ? '0' : '90'}
               autoFocus
             />
           </div>
         </div>
 
-        {/* Quick Presets for KG / Weight (if Milk or KG product) */}
+        {/* Quick Presets for KG / Weight (Only up to 1 kg for Milk) */}
         {isKgProduct && (
           <div className="custom-presets-section">
             <span className="section-micro-label">⚖️ Quick Weight (KG) Presets:</span>
             <div className="custom-presets-grid">
               {MILK_WEIGHT_PRESETS.map((preset) => {
                 const expectedPrice = Math.round(preset.weight * standardRateRupees);
-                const isSelected = currentRupees === expectedPrice || customNote.includes(`${preset.weight} kg`);
+                const isSelected = currentRupees === expectedPrice;
                 return (
                   <button
                     key={preset.label}
@@ -206,24 +190,26 @@ export function CustomAmountModal({
           </div>
         )}
 
-        {/* Quick Amount Presets */}
-        <div className="custom-presets-section">
-          <span className="section-micro-label">
-            ⚡ Quick Rupee Presets:
-          </span>
-          <div className="custom-presets-grid">
-            {(isKgProduct ? MILK_RUPEE_PRESETS : CHAI_PRESETS).map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                className={`preset-btn ${currentRupees === preset ? 'preset-btn--active' : ''}`}
-                onClick={() => handlePresetClick(preset)}
-              >
-                Rs.{preset}
-              </button>
-            ))}
+        {/* Quick Amount Presets (For Chai) */}
+        {!isKgProduct && (
+          <div className="custom-presets-section">
+            <span className="section-micro-label">
+              ⚡ Quick Rupee Presets:
+            </span>
+            <div className="custom-presets-grid">
+              {CHAI_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`preset-btn ${currentRupees === preset ? 'preset-btn--active' : ''}`}
+                  onClick={() => handlePresetClick(preset)}
+                >
+                  Rs.{preset}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Touch Numpad & Controls */}
         <div className="custom-modal-middle-grid">
@@ -265,20 +251,6 @@ export function CustomAmountModal({
                   +
                 </button>
               </div>
-            </div>
-
-            <div className="custom-note-field">
-              <label className="section-micro-label" htmlFor="custom-note-input">
-                Tag / Note / Weight:
-              </label>
-              <input
-                id="custom-note-input"
-                type="text"
-                className="form-input form-input-sm"
-                placeholder={isKgProduct ? 'e.g. 1 kg, 0.5 kg, Parcel...' : 'e.g. Parcel, Half Cup, Pot...'}
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
-              />
             </div>
 
             <div className="custom-total-box">

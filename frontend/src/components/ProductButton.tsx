@@ -11,9 +11,14 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
   const lowStock = product.stock <= 5;
   const outOfStock = product.stock <= 0;
 
-  const isCustomizable =
-    product.name.toLowerCase().includes('karak') ||
+  const isMilk =
+    product.unit === 'kg' ||
     product.name.toLowerCase().includes('milk');
+
+  const isChai =
+    product.name.toLowerCase().includes('karak');
+
+  const isCustomizable = isMilk || isChai;
 
   const priceDisplay =
     product.unit === 'kg'
@@ -40,15 +45,20 @@ export function ProductButton({ product, onClick, onCustomAmount }: Props) {
         {!outOfStock && isCustomizable && onCustomAmount && (
           <button
             type="button"
-            className="product-btn__custom-action"
+            className={`product-btn__custom-action ${isMilk ? 'product-btn__custom-action--milk' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onCustomAmount(product);
             }}
-            title={`Set custom amount for ${product.name}`}
+            title={
+              isMilk
+                ? `Set custom weight/amount for ${product.name}`
+                : `Set custom amount for ${product.name}`
+            }
             aria-label={`Set custom amount for ${product.name}`}
           >
-            ✏️ Custom
+            <span className="custom-action-icon">{isMilk ? '⚖️' : '☕'}</span>
+            <span>Custom</span>
           </button>
         )}
       </div>

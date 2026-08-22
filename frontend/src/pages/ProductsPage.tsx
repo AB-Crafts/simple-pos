@@ -567,54 +567,14 @@ export function ProductsPage() {
               {/* Stock Quantity */}
               <div className="form-group">
                 <label className="form-label">Stock Quantity</label>
-                <div className="stock-input-row">
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.stock}
-                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                    className="form-input"
-                    style={{ maxWidth: '140px' }}
-                  />
-                  <div className="quick-stock-chips">
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          stock: String((parseInt(form.stock || '0', 10) || 0) + 10),
-                        })
-                      }
-                    >
-                      +10
-                    </button>
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          stock: String((parseInt(form.stock || '0', 10) || 0) + 50),
-                        })
-                      }
-                    >
-                      +50
-                    </button>
-                    <button
-                      type="button"
-                      className="chip"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          stock: String((parseInt(form.stock || '0', 10) || 0) + 100),
-                        })
-                      }
-                    >
-                      +100
-                    </button>
-                  </div>
-                </div>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                  className="form-input"
+                />
               </div>
 
               {/* Active Toggle Checkbox */}
