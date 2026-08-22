@@ -18,6 +18,7 @@ export interface Product {
   barcode?: string | null;
   categoryId: string | null;
   department?: Department;
+  unit?: string | null;
   costPrice: Paisa;
   sellingPrice: Paisa;
   stock: number;
@@ -38,6 +39,7 @@ export interface SaleItem {
   productId: string | null;
   productName: string;
   department?: Department;
+  unit?: string | null;
   quantity: number;
   unitPrice: Paisa;
   costPrice: Paisa;
@@ -73,6 +75,26 @@ export interface Expense {
   createdAt: number;
 }
 
+export type MoneyTransactionType =
+  | 'CASH_SALE'
+  | 'CARD_SALE'
+  | 'CREDIT_SALE'
+  | 'EXPENSE'
+  | 'WITHDRAWAL';
+
+export interface MoneyTransaction {
+  id: string;
+  type: MoneyTransactionType;
+  amount: Paisa;
+  referenceId: string | null;
+  createdAt: number;
+}
+
+export interface Setting {
+  key: string;
+  value: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -80,3 +102,13 @@ export interface AuthUser {
   role: UserRole;
 }
 
+export interface CartLine {
+  id?: string;
+  productId: string;
+  name: string;
+  department?: Department;
+  unit?: string;
+  unitPrice: Paisa;
+  quantity: number;
+  isCustomPrice?: boolean;
+}

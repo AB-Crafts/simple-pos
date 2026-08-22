@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getProfitReport, getMoneyFlowReport } from '../services/reports.service.js';
+import { getProfitReport, getMoneyFlowReport, getReportSummary } from '../services/reports.service.js';
 import { ApiError } from '../utils/ApiError.js';
 
 function parseRange(req: Request): { from: number; to: number } {
@@ -16,4 +16,9 @@ export async function profitHandler(req: Request, res: Response) {
 export async function moneyFlowHandler(req: Request, res: Response) {
   const { from, to } = parseRange(req);
   res.json(await getMoneyFlowReport(from, to));
+}
+
+export async function summaryHandler(req: Request, res: Response) {
+  const { from, to } = parseRange(req);
+  res.json(await getReportSummary(from, to));
 }

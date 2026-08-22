@@ -1,9 +1,23 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { requireAuth } from '../middleware/auth.js';
-import { listHandler } from '../controllers/sales.controller.js';
+import {
+  listHandler,
+  getHandler,
+  allWithItemsHandler,
+  pendingCountHandler,
+  createHandler,
+  updateHandler,
+  settleHandler,
+  voidHandler,
+} from '../controllers/sales.controller.js';
 
 export const salesRoutes = Router();
 
-// Sales history is business-sensitive — requires a logged-in device/user.
-salesRoutes.get('/', requireAuth, asyncHandler(listHandler));
+salesRoutes.get('/', asyncHandler(listHandler));
+salesRoutes.get('/all-with-items', asyncHandler(allWithItemsHandler));
+salesRoutes.get('/pending-count', asyncHandler(pendingCountHandler));
+salesRoutes.get('/:id', asyncHandler(getHandler));
+salesRoutes.post('/', asyncHandler(createHandler));
+salesRoutes.put('/:id', asyncHandler(updateHandler));
+salesRoutes.post('/:id/settle', asyncHandler(settleHandler));
+salesRoutes.post('/:id/void', asyncHandler(voidHandler));

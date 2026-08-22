@@ -13,7 +13,7 @@ import {
   prepareOrderPreview,
   type OrderOperationResult,
 } from '../services/salesService';
-import { db } from '../database/db';
+import { apiClient } from '../services/apiClient';
 import { generateId } from '../utils/id';
 import type { CartLine, OrderType, Paisa, PaymentMethod, Product, Sale, SaleItem, Waiter } from '../types';
 import { formatMoney } from '../utils/money';
@@ -49,11 +49,15 @@ export function POSPage({
   // Barcode scanner integration
   const handleScan = useCallback(
     async (code: string) => {
-      const product = await db.products.where('barcode').equals(code).first();
-      if (product && product.active) {
-        cart.addProduct(product);
-        setToast(`Added ${product.name}`);
-      } else {
+      try {
+        const product = await apiClient.get<Product | null>(`/products/barcode/${code}`);
+        if (product && product.active) {
+          cart.addProduct(product);
+          setToast(`Added ${product.name}`);
+        } else {
+          setToast(`No product found for barcode ${code}`);
+        }
+      } catch {
         setToast(`No product found for barcode ${code}`);
       }
     },
@@ -87,32 +91,39 @@ export function POSPage({
   }, [editingOrder]);
 
   async function loadWaiters() {
-    const list = await db.waiters.filter((w) => w.active).toArray();
-    setWaiters(list);
-    if (list.length > 0 && selectedWaiter === 'Waiter') {
-      setSelectedWaiter(list[0].name);
+    try {
+      const list = await apiClient.get<Waiter[]>('/waiters?active=true');
+      setWaiters(list);
+      if (list.length > 0 && selectedWaiter === 'Waiter') {
+        setSelectedWaiter(list[0].name);
+      }
+    } catch (err) {
+      console.error('Failed to load waiters:', err);
     }
   }
 
   async function loadPendingCount() {
-    const count = await db.sales.where('status').equals('PENDING').count();
-    setPendingCount(count);
+    try {
+      const { count } = await apiClient.get<{ count: number }>('/sales/pending-count');
+      setPendingCount(count);
+    } catch {
+      // ignore if offline / starting up
+    }
   }
 
   async function handleAddWaiter() {
     const name = newWaiterName.trim();
     if (!name) return;
-    await db.waiters.add({
-      id: generateId(),
-      name,
-      active: true,
-      createdAt: Date.now(),
-    });
-    await loadWaiters();
-    setSelectedWaiter(name);
-    setNewWaiterName('');
-    setShowAddWaiter(false);
-    setToast(`Added waiter "${name}"`);
+    try {
+      await apiClient.post<Waiter>('/waiters', { name });
+      await loadWaiters();
+      setSelectedWaiter(name);
+      setNewWaiterName('');
+      setShowAddWaiter(false);
+      setToast(`Added waiter "${name}"`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add waiter');
+    }
   }
 
   // 1. Send Order to Kitchen (Preview first — only committed to DB when "Done" is clicked)
@@ -239,7 +250,14 @@ export function POSPage({
 
   // Edit price of an existing cart line
   async function handleEditCartLinePrice(line: CartLine) {
-    const product = (await db.products.get(line.productId)) || {
+    let product: Product | null = null;
+    try {
+      product = await apiClient.get<Product>(`/products/${line.productId}`);
+    } catch {
+      product = null;
+    }
+
+    const fallbackProduct: Product = product || {
       id: line.productId,
       name: line.name,
       department: line.department,
@@ -251,7 +269,7 @@ export function POSPage({
       updatedAt: Date.now(),
       categoryId: null,
     };
-    setCustomModalTarget({ product, line });
+    setCustomModalTarget({ product: fallbackProduct, line });
   }
 
   // Confirm custom amount from modal
@@ -263,23 +281,41 @@ export function POSPage({
   ) {
     if (customModalTarget?.line) {
       // Editing existing line
-      const lineKey = customModalTarget.line.id || customModalTarget.line.productId;
-      cart.updateLinePrice(lineKey, unitPrice, customName);
-      setToast(`Updated ${customName || product.name} (${formatMoney(unitPrice)})`);
+      cart.updateLinePrice(customModalTarget.line.id || customModalTarget.line.productId, unitPrice, customName);
+      setToast(`Updated price for ${customModalTarget.line.name} to ${formatMoney(unitPrice)}`);
     } else {
-      // Adding new custom amount line
+      // Adding new customized product to cart
       cart.addProduct(product, unitPrice, customName, quantity);
-      setToast(`Added ${customName || product.name} (${formatMoney(unitPrice * quantity)})`);
+      setToast(`Added ${customName || product.name} (${formatMoney(unitPrice)})`);
     }
     setCustomModalTarget(null);
   }
 
   return (
     <div className="pos-page">
-      <div className="pos-page__main">
-        {/* Order Type and Waiter Selection Bar */}
-        <div className="pos-order-bar">
-          <div className="order-type-switch">
+      <div className="pos-left-panel">
+        <ProductGrid
+          onAddProduct={cart.addProduct}
+          onCustomAmount={handleOpenCustomModal}
+        />
+      </div>
+
+      <div className="pos-right-panel">
+        {editingOrder && (
+          <div className="order-editing-banner">
+            <div>
+              <strong>✏️ Editing Order #{editingOrder.sale.orderNumber}</strong>
+              <span className="order-editing-banner__sub"> ({editingOrder.sale.displayId})</span>
+            </div>
+            <button className="btn btn-sm btn-ghost" onClick={handleCancelEdit}>
+              Cancel Editing
+            </button>
+          </div>
+        )}
+
+        {/* Order Type & Waiter Bar */}
+        <div className="order-context-bar">
+          <div className="order-type-toggle">
             <button
               type="button"
               className={`type-btn ${orderType === 'DINE_IN' ? 'type-btn--active' : ''}`}
@@ -292,179 +328,105 @@ export function POSPage({
               className={`type-btn ${orderType === 'TAKE_AWAY' ? 'type-btn--active' : ''}`}
               onClick={() => setOrderType('TAKE_AWAY')}
             >
-              🛍️ Take Away
+              🛍️ Takeaway
             </button>
           </div>
 
           {orderType === 'DINE_IN' && (
             <div className="waiter-select-group">
-              <label htmlFor="waiter-select" className="waiter-label">
-                Waiter:
-              </label>
+              <span className="waiter-label">👤 Waiter:</span>
               <select
-                id="waiter-select"
-                className="waiter-dropdown"
+                className="waiter-select"
                 value={selectedWaiter}
-                onChange={(e) => setSelectedWaiter(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === '__add_new__') {
+                    setShowAddWaiter(true);
+                  } else {
+                    setSelectedWaiter(e.target.value);
+                  }
+                }}
               >
                 {waiters.map((w) => (
                   <option key={w.id} value={w.name}>
                     {w.name}
                   </option>
                 ))}
-                {waiters.length === 0 && <option value="Buraid">Buraid</option>}
+                <option value="__add_new__">+ Add Waiter...</option>
               </select>
-
-              <button
-                type="button"
-                className="btn-add-waiter"
-                onClick={() => setShowAddWaiter(true)}
-                title="Add new waiter"
-              >
-                +
-              </button>
             </div>
-          )}
-
-          {onNavigateToOrders && (
-            <button
-              type="button"
-              className="btn-pending-badge"
-              onClick={onNavigateToOrders}
-              title="View all active pending orders"
-            >
-              🟡 Active Orders ({pendingCount})
-            </button>
           )}
         </div>
 
-        {editingOrder && (
-          <div className="editing-banner">
-            <div className="editing-banner__info">
-              <strong>✏️ Editing Order #{editingOrder.sale.orderNumber}</strong> · Taken by:{' '}
-              {editingOrder.sale.takenBy}
-              <span className="editing-banner__hint">
-                (Newly added Chai/Parhata items will generate supplementary slips)
+        {/* Active Orders & Bills Quick Counter Link */}
+        {onNavigateToOrders && (
+          <div className="active-orders-quicklink" onClick={onNavigateToOrders}>
+            <div className="quicklink-left">
+              <span className="quicklink-badge">
+                🟡 {pendingCount} Pending {pendingCount === 1 ? 'Order' : 'Orders'}
               </span>
+              <span className="quicklink-desc">View running bills & kitchen slips</span>
             </div>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancelEdit}>
-              Cancel Editing
+            <span className="quicklink-arrow">Orders & Bills →</span>
+          </div>
+        )}
+
+        {/* Add Waiter Inline Modal */}
+        {showAddWaiter && (
+          <div className="inline-add-waiter">
+            <input
+              type="text"
+              placeholder="Waiter name (e.g. Usman, Ali)..."
+              value={newWaiterName}
+              onChange={(e) => setNewWaiterName(e.target.value)}
+              className="waiter-input"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleAddWaiter()}
+            />
+            <button className="btn btn-sm btn-primary" onClick={handleAddWaiter}>
+              Save
+            </button>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={() => {
+                setShowAddWaiter(false);
+                setNewWaiterName('');
+              }}
+            >
+              Cancel
             </button>
           </div>
         )}
 
-        <ProductGrid
-          onAddProduct={(p) => {
-            cart.addProduct(p);
-            setToast(`Added ${p.name}`);
-          }}
-          onCustomAmount={handleOpenCustomModal}
-        />
-      </div>
-
-      {/* POS Sidebar: Cart & Actions */}
-      <div className="pos-page__sidebar">
         <CartPanel
           lines={cart.lines}
           total={cart.total}
           onIncrement={cart.increment}
           onDecrement={cart.decrement}
           onRemove={cart.removeLine}
-          onEditPrice={handleEditCartLinePrice}
           onClear={cart.clear}
+          onEditPrice={handleEditCartLinePrice}
         />
 
         <div className="pos-action-panel">
-          {editingOrder ? (
-            <div className="edit-actions-stack">
-              <button
-                className="btn btn-primary btn-large btn-block"
-                disabled={saving || cart.lines.length === 0}
-                onClick={handleSendToKitchen}
-              >
-                ⚡ Update Order & Print Add-On Slips
-              </button>
-              <button
-                className="btn btn-success btn-block"
-                disabled={saving || cart.lines.length === 0}
-                onClick={() =>
-                  setSettleModalTarget({
-                    sale: { ...editingOrder.sale, total: cart.total },
-                    items: cart.lines.map((l) => ({
-                      id: generateId(),
-                      saleId: editingOrder.sale.id,
-                      productId: l.productId,
-                      productName: l.name,
-                      department: l.department,
-                      quantity: l.quantity,
-                      unitPrice: l.unitPrice,
-                      costPrice: 0,
-                      total: l.unitPrice * l.quantity,
-                    })),
-                  })
-                }
-              >
-                💵 Settle & Clear Payment
-              </button>
-            </div>
-          ) : (
-            <div className="order-actions-stack">
-              <button
-                className="btn btn-primary btn-large btn-block send-kitchen-btn"
-                disabled={saving || cart.lines.length === 0}
-                onClick={handleSendToKitchen}
-                title="Saves order in PENDING status and immediately generates Chai & Parhata kitchen slips"
-              >
-                ⚡ Send to Kitchen (Pending Bill)
-              </button>
-
-              <div className="direct-pay-wrapper">
-                <PaymentPanel
-                  total={cart.total}
-                  disabled={saving || cart.lines.length === 0}
-                  onComplete={handleDirectPayment}
-                />
-              </div>
-            </div>
-          )}
+          <div className="order-actions-stack">
+            <button
+              type="button"
+              className="send-kitchen-btn"
+              disabled={cart.lines.length === 0 || saving}
+              onClick={handleSendToKitchen}
+            >
+              {editingOrder ? '📋 Print Supplementary Slip & Update' : '📋 Send to Kitchen (Slip)'}
+            </button>
+            <PaymentPanel
+              total={cart.total}
+              disabled={cart.lines.length === 0 || saving}
+              onComplete={handleDirectPayment}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Add Waiter Modal */}
-      {showAddWaiter && (
-        <div className="modal-overlay" onClick={() => setShowAddWaiter(false)}>
-          <div className="modal-card modal-card--sm" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">Add Waiter</h3>
-              <button className="btn-icon" onClick={() => setShowAddWaiter(false)}>
-                ✕
-              </button>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Waiter Name</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Buraid, Ali, Hamza..."
-                value={newWaiterName}
-                onChange={(e) => setNewWaiterName(e.target.value)}
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleAddWaiter()}
-              />
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => setShowAddWaiter(false)}>
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleAddWaiter}>
-                Add Waiter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Slips & Tokens Preview Modal */}
+      {/* Slip Modal Preview & Confirmation */}
       {slipModalResult && (
         <SlipModal
           sale={slipModalResult.sale}
@@ -479,29 +441,28 @@ export function POSPage({
         />
       )}
 
-      {/* Settle Order Modal */}
+      {/* Settle Bill Modal for cleared orders */}
       {settleModalTarget && (
         <SettleModal
           sale={settleModalTarget.sale}
           items={settleModalTarget.items}
-          onSuccess={(settled) => {
+          onSuccess={() => {
             setSettleModalTarget(null);
-            setToast(`Order #${settled.orderNumber} marked as PAID`);
             cart.clear();
             if (onClearEditingOrder) onClearEditingOrder();
+            setToast('Bill cleared successfully');
             loadPendingCount();
           }}
           onClose={() => setSettleModalTarget(null)}
         />
       )}
 
-      {/* Custom Amount Modal (for Karak Chai and other custom orders) */}
+      {/* Custom Amount Modal (Karak Chai / Custom Items / Price Edits) */}
       {customModalTarget && (
         <CustomAmountModal
           product={customModalTarget.product}
-          initialUnitPrice={customModalTarget.line?.unitPrice}
-          initialQuantity={customModalTarget.line?.quantity || 1}
-          initialName={customModalTarget.line?.name}
+          initialUnitPrice={customModalTarget.line ? customModalTarget.line.unitPrice : customModalTarget.product.sellingPrice}
+          initialQuantity={customModalTarget.line ? customModalTarget.line.quantity : 1}
           onConfirm={handleConfirmCustomAmount}
           onClose={() => setCustomModalTarget(null)}
         />

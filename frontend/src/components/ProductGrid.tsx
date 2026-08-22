@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../database/db';
-import type { Department, Product } from '../types';
+import { useEffect, useMemo, useState } from 'react';
+import { apiClient } from '../services/apiClient';
+import type { Category, Department, Product, SaleItem } from '../types';
 import { ProductButton } from './ProductButton';
 
 interface Props {
@@ -68,9 +67,36 @@ export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | 'all'>('all');
 
-  const allProducts = useLiveQuery(() => db.products.toArray(), []);
-  const categories = useLiveQuery(() => db.categories.toArray(), []);
-  const saleItems = useLiveQuery(() => db.saleItems.toArray(), []);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadData() {
+      try {
+        const [prods, cats, salesData] = await Promise.all([
+          apiClient.get<Product[]>('/products'),
+          apiClient.get<Category[]>('/categories'),
+          apiClient.get<{ sales: any[]; itemsMap: Record<string, SaleItem[]> }>('/sales/all-with-items').catch(() => ({ sales: [], itemsMap: {} })),
+        ]);
+        if (mounted) {
+          setAllProducts(prods);
+          setCategories(cats);
+          const flatItems: SaleItem[] = Object.values(salesData.itemsMap || {}).flat() as SaleItem[];
+          setSaleItems(flatItems);
+        }
+      } catch (err) {
+        console.error('Failed to load products in ProductGrid:', err);
+      }
+    }
+
+    loadData();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Compute product sales frequencies
   const salesCountByProduct = useMemo(() => {
@@ -86,7 +112,7 @@ export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
   // Memoized unique categories (no duplicates, ordered Chai -> Parhata -> Cold Drinks -> Snacks & Extras)
   const uniqueCategories = useMemo(() => {
     if (!categories) return [];
-    const map = new Map<string, (typeof categories)[0]>();
+    const map = new Map<string, Category>();
     for (const c of categories) {
       const norm = c.name.trim().toLowerCase();
       if (!map.has(norm)) {
@@ -380,4 +406,3 @@ export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
     </div>
   );
 }
-

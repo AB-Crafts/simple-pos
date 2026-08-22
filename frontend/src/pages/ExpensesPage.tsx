@@ -1,9 +1,7 @@
-import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../database/db';
-import { EXPENSE_CATEGORIES, recordExpense } from '../services/expensesService';
+import { useEffect, useMemo, useState } from 'react';
+import { EXPENSE_CATEGORIES, listExpenses, recordExpense } from '../services/expensesService';
 import { formatMoney, toPaisa } from '../utils/money';
-import type { PaymentMethod } from '../types';
+import type { Expense, PaymentMethod } from '../types';
 
 interface ExpenseFormData {
   description: string;
@@ -22,10 +20,8 @@ const emptyForm: ExpenseFormData = {
 };
 
 export function ExpensesPage() {
-  const expenses = useLiveQuery(
-    () => db.expenses.orderBy('createdAt').reverse().toArray(),
-    []
-  );
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState<ExpenseFormData>(emptyForm);
   const [showModal, setShowModal] = useState(false);
@@ -36,6 +32,22 @@ export function ExpensesPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [timeframeFilter, setTimeframeFilter] = useState<'ALL' | 'TODAY' | 'WEEK' | 'MONTH'>('ALL');
+
+  useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  async function loadExpenses() {
+    setLoading(true);
+    try {
+      const data = await listExpenses();
+      setExpenses(data);
+    } catch (err) {
+      console.error('Failed to load expenses:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Stats
   const { todayTotal, monthTotal, count } = useMemo(() => {
@@ -117,6 +129,7 @@ export function ExpensesPage() {
       setToast(`Expense "${form.description.trim()}" of Rs. ${amt} recorded!`);
       setForm(emptyForm);
       setShowModal(false);
+      await loadExpenses();
     } catch (e: any) {
       setError(e instanceof Error ? e.message : 'Could not save expense');
     } finally {
@@ -302,7 +315,7 @@ export function ExpensesPage() {
                 <td colSpan={5} className="expenses-empty-cell">
                   <div className="empty-state-wrap">
                     <span className="empty-icon">💸</span>
-                    <p className="empty-title">No expenses found</p>
+                    <p className="empty-title">{loading ? 'Loading expenses...' : 'No expenses found'}</p>
                     <p className="empty-desc">
                       {search || categoryFilter !== 'ALL' || timeframeFilter !== 'ALL'
                         ? 'No expenses matched the chosen filter.'

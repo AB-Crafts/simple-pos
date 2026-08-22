@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../database/db';
-import { formatMoney, sumPaisa } from '../utils/money';
+import { useEffect, useMemo, useState } from 'react';
+import { apiClient } from '../services/apiClient';
+import { formatMoney } from '../utils/money';
 
 const MONTH_NAMES = [
   'January',
@@ -45,6 +44,58 @@ function formatDateDisplay(d: Date): string {
   });
 }
 
+interface ReportData {
+  from: number;
+  to: number;
+  totalSales: number;
+  totalExpenses: number;
+  cogs: number;
+  grossProfit: number;
+  netProfit: number;
+  totalOrders: number;
+  paidOrders: number;
+  pendingOrders: number;
+  dineInOrders: number;
+  takeawayOrders: number;
+  cashSales: number;
+  cardSales: number;
+  creditSales: number;
+  deptBreakdown: {
+    chaiRevenue: number;
+    chaiQty: number;
+    parhataRevenue: number;
+    parhataQty: number;
+    generalRevenue: number;
+    generalQty: number;
+  };
+}
+
+const defaultReport: ReportData = {
+  from: 0,
+  to: 0,
+  totalSales: 0,
+  totalExpenses: 0,
+  cogs: 0,
+  grossProfit: 0,
+  netProfit: 0,
+  totalOrders: 0,
+  paidOrders: 0,
+  pendingOrders: 0,
+  dineInOrders: 0,
+  takeawayOrders: 0,
+  cashSales: 0,
+  cardSales: 0,
+  creditSales: 0,
+  deptBreakdown: {
+    chaiRevenue: 0,
+    chaiQty: 0,
+    parhataRevenue: 0,
+    parhataQty: 0,
+    generalRevenue: 0,
+    generalQty: 0,
+  },
+};
+
 export function ReportsPage() {
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -72,6 +123,8 @@ export function ReportsPage() {
   const [toMonth, setToMonth] = useState<number>(currentMonth);
   const [toDay, setToDay] = useState<number>(currentDay);
 
+  const [report, setReport] = useState<ReportData>(defaultReport);
+
   // Calculate milliseconds range [from, to]
   const { from, to, label } = useMemo(() => {
     const now = new Date();
@@ -98,90 +151,92 @@ export function ReportsPage() {
 
     if (preset === 'this_week') {
       const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon ...
-      const diffToMonday = (dayOfWeek + 6) % 7; // Monday as start of week
-      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday, 0, 0, 0, 0);
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday, 0, 0, 0, 0).getTime();
       return {
-        from: startOfWeek.getTime(),
+        from: mon,
         to: endOfToday,
-        label: `This Week (${formatDateDisplay(startOfWeek)} – Today)`,
+        label: `This Week (${formatDateDisplay(new Date(mon))} – Today)`,
       };
     }
 
     if (preset === 'last_week') {
       const dayOfWeek = now.getDay();
-      const diffToMonday = (dayOfWeek + 6) % 7;
-      const startOfLastWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday - 7, 0, 0, 0, 0);
-      const endOfLastWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday - 1, 23, 59, 59, 999);
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const lastMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday - 7, 0, 0, 0, 0).getTime();
+      const lastSun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday - 1, 23, 59, 59, 999).getTime();
       return {
-        from: startOfLastWeek.getTime(),
-        to: endOfLastWeek.getTime(),
-        label: `Last Week (${formatDateDisplay(startOfLastWeek)} – ${formatDateDisplay(endOfLastWeek)})`,
+        from: lastMon,
+        to: lastSun,
+        label: `Last Week (${formatDateDisplay(new Date(lastMon))} – ${formatDateDisplay(new Date(lastSun))})`,
       };
     }
 
     if (preset === 'last_7_days') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+      const start7 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0).getTime();
       return {
-        from: start.getTime(),
+        from: start7,
         to: endOfToday,
-        label: `Last 7 Days (${formatDateDisplay(start)} – Today)`,
+        label: `Last 7 Days (${formatDateDisplay(new Date(start7))} – Today)`,
       };
     }
 
     if (preset === 'this_month') {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const startM = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
       return {
-        from: startOfMonth.getTime(),
+        from: startM,
         to: endOfToday,
         label: `This Month (${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()})`,
       };
     }
 
     if (preset === 'last_month') {
-      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      const days = getDaysInMonth(startOfLastMonth.getFullYear(), startOfLastMonth.getMonth());
-      const endOfLastMonth = new Date(startOfLastMonth.getFullYear(), startOfLastMonth.getMonth(), days, 23, 59, 59, 999);
+      const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      const daysInPrev = getDaysInMonth(prevYear, prevMonth);
+      const startLM = new Date(prevYear, prevMonth, 1, 0, 0, 0, 0).getTime();
+      const endLM = new Date(prevYear, prevMonth, daysInPrev, 23, 59, 59, 999).getTime();
       return {
-        from: startOfLastMonth.getTime(),
-        to: endOfLastMonth.getTime(),
-        label: `Last Month (${MONTH_NAMES[startOfLastMonth.getMonth()]} ${startOfLastMonth.getFullYear()})`,
+        from: startLM,
+        to: endLM,
+        label: `Last Month (${MONTH_NAMES[prevMonth]} ${prevYear})`,
       };
     }
 
     if (preset === 'last_30_days') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
+      const start30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0).getTime();
       return {
-        from: start.getTime(),
+        from: start30,
         to: endOfToday,
-        label: `Last 30 Days (${formatDateDisplay(start)} – Today)`,
+        label: `Last 30 Days (${formatDateDisplay(new Date(start30))} – Today)`,
       };
     }
 
     if (preset === 'this_year') {
-      const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+      const startY = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
       return {
-        from: startOfYear.getTime(),
+        from: startY,
         to: endOfToday,
-        label: `Year ${now.getFullYear()} (${formatDateDisplay(startOfYear)} – Today)`,
+        label: `This Year (${now.getFullYear()})`,
       };
     }
 
     if (preset === 'specific_day') {
       const maxDays = getDaysInMonth(singleYear, singleMonth);
-      const validDay = Math.min(singleDay, maxDays);
-      const start = new Date(singleYear, singleMonth, validDay, 0, 0, 0, 0).getTime();
-      const end = new Date(singleYear, singleMonth, validDay, 23, 59, 59, 999).getTime();
+      const day = Math.min(singleDay, maxDays);
+      const start = new Date(singleYear, singleMonth, day, 0, 0, 0, 0).getTime();
+      const end = new Date(singleYear, singleMonth, day, 23, 59, 59, 999).getTime();
       return {
         from: start,
         to: end,
-        label: `Day: ${formatDateDisplay(new Date(start))}`,
+        label: `Single Day: ${formatDateDisplay(new Date(start))}`,
       };
     }
 
     if (preset === 'specific_month') {
-      const days = getDaysInMonth(monthYear, monthMonth);
+      const daysCount = getDaysInMonth(monthYear, monthMonth);
       const start = new Date(monthYear, monthMonth, 1, 0, 0, 0, 0).getTime();
-      const end = new Date(monthYear, monthMonth, days, 23, 59, 59, 999).getTime();
+      const end = new Date(monthYear, monthMonth, daysCount, 23, 59, 59, 999).getTime();
       return {
         from: start,
         to: end,
@@ -190,13 +245,19 @@ export function ReportsPage() {
     }
 
     // custom_range
-    const maxFromDays = getDaysInMonth(fromYear, fromMonth);
-    const validFromDay = Math.min(fromDay, maxFromDays);
-    const start = new Date(fromYear, fromMonth, validFromDay, 0, 0, 0, 0).getTime();
+    const fromMaxDays = getDaysInMonth(fromYear, fromMonth);
+    const validFromDay = Math.min(fromDay, fromMaxDays);
+    const toMaxDays = getDaysInMonth(toYear, toMonth);
+    const validToDay = Math.min(toDay, toMaxDays);
 
-    const maxToDays = getDaysInMonth(toYear, toMonth);
-    const validToDay = Math.min(toDay, maxToDays);
-    const end = new Date(toYear, toMonth, validToDay, 23, 59, 59, 999).getTime();
+    let start = new Date(fromYear, fromMonth, validFromDay, 0, 0, 0, 0).getTime();
+    let end = new Date(toYear, toMonth, validToDay, 23, 59, 59, 999).getTime();
+
+    if (start > end) {
+      const temp = start;
+      start = end;
+      end = temp;
+    }
 
     return {
       from: start,
@@ -218,104 +279,25 @@ export function ReportsPage() {
     toDay,
   ]);
 
-  // Query sales & expenses in the selected date range
-  const sales = useLiveQuery(
-    () =>
-      db.sales
-        .where('createdAt')
-        .between(from, to, true, true)
-        .and((s) => !s.voided)
-        .toArray(),
-    [from, to]
-  );
+  useEffect(() => {
+    let mounted = true;
 
-  const expenses = useLiveQuery(
-    () => db.expenses.where('createdAt').between(from, to, true, true).toArray(),
-    [from, to]
-  );
-
-  const saleIds = useMemo(() => (sales ?? []).map((s) => s.id), [sales]);
-
-  const saleItems = useLiveQuery(async () => {
-    if (saleIds.length === 0) return [];
-    return db.saleItems.where('saleId').anyOf(saleIds).toArray();
-  }, [saleIds]);
-
-  // Aggregate metrics
-  const totals = useMemo(() => {
-    const validSales = sales ?? [];
-    const validExpenses = expenses ?? [];
-    const totalSales = sumPaisa(validSales.map((s) => s.total));
-    const totalExpenses = sumPaisa(validExpenses.map((e) => e.amount));
-    const totalOrders = validSales.length;
-    const paidOrders = validSales.filter((s) => s.status === 'PAID').length;
-    const pendingOrders = validSales.filter((s) => s.status === 'PENDING').length;
-    const dineInOrders = validSales.filter((s) => s.orderType === 'DINE_IN').length;
-    const takeawayOrders = validSales.filter((s) => s.orderType === 'TAKE_AWAY').length;
-
-    // Payment methods breakdown
-    const cashSales = sumPaisa(validSales.filter((s) => s.paymentMethod === 'CASH').map((s) => s.total));
-    const cardSales = sumPaisa(validSales.filter((s) => s.paymentMethod === 'CARD').map((s) => s.total));
-    const creditSales = sumPaisa(validSales.filter((s) => s.paymentMethod === 'CREDIT').map((s) => s.total));
-
-    return {
-      totalSales,
-      totalExpenses,
-      totalOrders,
-      paidOrders,
-      pendingOrders,
-      dineInOrders,
-      takeawayOrders,
-      cashSales,
-      cardSales,
-      creditSales,
-    };
-  }, [sales, expenses]);
-
-  // COGS and department revenue breakdown
-  const { cogs, deptBreakdown } = useMemo(() => {
-    const items = saleItems ?? [];
-    const cogsTotal = sumPaisa(items.map((i) => (i.costPrice || 0) * i.quantity));
-
-    let chaiRevenue = 0;
-    let chaiQty = 0;
-    let parhataRevenue = 0;
-    let parhataQty = 0;
-    let generalRevenue = 0;
-    let generalQty = 0;
-
-    for (const item of items) {
-      const dept = item.department;
-      if (dept === 'CHAI') {
-        chaiRevenue += item.total;
-        chaiQty += item.quantity;
-      } else if (dept === 'PARHATA') {
-        parhataRevenue += item.total;
-        parhataQty += item.quantity;
-      } else {
-        generalRevenue += item.total;
-        generalQty += item.quantity;
+    async function fetchReport() {
+      try {
+        const data = await apiClient.get<ReportData>(`/reports/summary?from=${from}&to=${to}`);
+        if (mounted) setReport(data);
+      } catch (err) {
+        console.error('Failed to load report summary:', err);
       }
     }
 
-    return {
-      cogs: cogsTotal,
-      deptBreakdown: {
-        chaiRevenue,
-        chaiQty,
-        parhataRevenue,
-        parhataQty,
-        generalRevenue,
-        generalQty,
-      },
+    fetchReport();
+    return () => {
+      mounted = false;
     };
-  }, [saleItems]);
+  }, [from, to]);
 
-  const grossProfit = totals.totalSales - cogs;
-  const netProfit = grossProfit - totals.totalExpenses;
-  const netMargin = totals.totalSales > 0 ? Math.round((netProfit / totals.totalSales) * 100) : 0;
-
-  // Year options list
+  const netMargin = report.totalSales > 0 ? Math.round((report.netProfit / report.totalSales) * 100) : 0;
   const yearOptions = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2];
 
   return (
@@ -450,7 +432,7 @@ export function ReportsPage() {
         {/* 2. Specific Month Dropdown Selectors */}
         {preset === 'specific_month' && (
           <div className="custom-dropdowns-panel">
-            <div className="custom-panel-title">🗓️ Select Month & Year:</div>
+            <div className="custom-panel-title">🗓️ Select Exact Month & Year:</div>
             <div className="dropdowns-row">
               <div className="dropdown-field">
                 <label>Month</label>
@@ -485,14 +467,13 @@ export function ReportsPage() {
           </div>
         )}
 
-        {/* 3. Custom Date Range Dropdowns (From / To) */}
+        {/* 3. Custom Date Range (From – To) Dropdown Selectors */}
         {preset === 'custom_range' && (
           <div className="custom-dropdowns-panel">
-            <div className="custom-panel-title">🗓️ Select Date Range (From & To):</div>
-            <div className="custom-range-grid">
-              {/* FROM */}
-              <div className="range-box">
-                <div className="range-box-title">Start Date (From):</div>
+            <div className="custom-range-two-col">
+              {/* From Date */}
+              <div className="range-column">
+                <div className="range-col-title">🟢 From Date:</div>
                 <div className="dropdowns-row">
                   <div className="dropdown-field">
                     <label>Day</label>
@@ -541,9 +522,9 @@ export function ReportsPage() {
                 </div>
               </div>
 
-              {/* TO */}
-              <div className="range-box">
-                <div className="range-box-title">End Date (To):</div>
+              {/* To Date */}
+              <div className="range-column">
+                <div className="range-col-title">🔴 To Date:</div>
                 <div className="dropdowns-row">
                   <div className="dropdown-field">
                     <label>Day</label>
@@ -595,13 +576,13 @@ export function ReportsPage() {
           </div>
         )}
 
-        {/* Active Period Display Banner */}
-        <div className="active-period-banner">
+        {/* Selected Period Confirmation Banner */}
+        <div className="selected-period-banner">
           <div className="period-badge-text">
             <span>📊 Showing:</span> <strong>{label}</strong>
           </div>
           <div className="period-order-count">
-            {totals.totalOrders} Total Orders ({totals.paidOrders} Settled, {totals.pendingOrders} Active)
+            {report.totalOrders} Total Orders ({report.paidOrders} Settled, {report.pendingOrders} Active)
           </div>
         </div>
       </div>
@@ -610,31 +591,31 @@ export function ReportsPage() {
       <div className="reports-metric-cards-grid">
         <div className="metric-card metric-card--sales">
           <span className="metric-card__title">Total Gross Sales</span>
-          <span className="metric-card__val">{formatMoney(totals.totalSales)}</span>
-          <span className="metric-card__sub">{totals.totalOrders} total sales transactions</span>
+          <span className="metric-card__val">{formatMoney(report.totalSales)}</span>
+          <span className="metric-card__sub">{report.totalOrders} total sales transactions</span>
         </div>
 
         <div className="metric-card metric-card--cogs">
           <span className="metric-card__title">Cost of Goods (COGS)</span>
-          <span className="metric-card__val">{formatMoney(cogs)}</span>
+          <span className="metric-card__val">{formatMoney(report.cogs)}</span>
           <span className="metric-card__sub">Product purchase costs</span>
         </div>
 
         <div className="metric-card metric-card--gross">
           <span className="metric-card__title">Gross Profit</span>
-          <span className="metric-card__val text-success">{formatMoney(grossProfit)}</span>
+          <span className="metric-card__val text-success">{formatMoney(report.grossProfit)}</span>
           <span className="metric-card__sub">Sales − Cost of Goods</span>
         </div>
 
         <div className="metric-card metric-card--expenses">
           <span className="metric-card__title">Total Expenses</span>
-          <span className="metric-card__val text-danger">{formatMoney(totals.totalExpenses)}</span>
-          <span className="metric-card__sub">{expenses?.length ?? 0} expense records</span>
+          <span className="metric-card__val text-danger">{formatMoney(report.totalExpenses)}</span>
+          <span className="metric-card__sub">Recorded operational costs</span>
         </div>
 
-        <div className={`metric-card metric-card--net ${netProfit >= 0 ? 'metric-card--net-pos' : 'metric-card--net-neg'}`}>
+        <div className={`metric-card metric-card--net ${report.netProfit >= 0 ? 'metric-card--net-pos' : 'metric-card--net-neg'}`}>
           <span className="metric-card__title">Net Profit</span>
-          <span className="metric-card__val">{formatMoney(netProfit)}</span>
+          <span className="metric-card__val">{formatMoney(report.netProfit)}</span>
           <span className="metric-card__sub">
             {netMargin}% Net Margin (Gross Profit − Expenses)
           </span>
@@ -650,33 +631,33 @@ export function ReportsPage() {
             <div className="dept-breakdown-item">
               <div className="dept-item-header">
                 <span className="dept-item-name">☕ Chai Department</span>
-                <strong className="dept-item-val">{formatMoney(deptBreakdown.chaiRevenue)}</strong>
+                <strong className="dept-item-val">{formatMoney(report.deptBreakdown.chaiRevenue)}</strong>
               </div>
               <div className="dept-item-sub">
-                {deptBreakdown.chaiQty} cups / items sold
-                {totals.totalSales > 0 && ` · ${Math.round((deptBreakdown.chaiRevenue / totals.totalSales) * 100)}% of sales`}
+                {report.deptBreakdown.chaiQty} cups / items sold
+                {report.totalSales > 0 && ` · ${Math.round((report.deptBreakdown.chaiRevenue / report.totalSales) * 100)}% of sales`}
               </div>
             </div>
 
             <div className="dept-breakdown-item">
               <div className="dept-item-header">
                 <span className="dept-item-name">🫓 Parhata Department</span>
-                <strong className="dept-item-val">{formatMoney(deptBreakdown.parhataRevenue)}</strong>
+                <strong className="dept-item-val">{formatMoney(report.deptBreakdown.parhataRevenue)}</strong>
               </div>
               <div className="dept-item-sub">
-                {deptBreakdown.parhataQty} parhatas / items sold
-                {totals.totalSales > 0 && ` · ${Math.round((deptBreakdown.parhataRevenue / totals.totalSales) * 100)}% of sales`}
+                {report.deptBreakdown.parhataQty} parhatas / items sold
+                {report.totalSales > 0 && ` · ${Math.round((report.deptBreakdown.parhataRevenue / report.totalSales) * 100)}% of sales`}
               </div>
             </div>
 
             <div className="dept-breakdown-item">
               <div className="dept-item-header">
                 <span className="dept-item-name">📦 General Menu Items</span>
-                <strong className="dept-item-val">{formatMoney(deptBreakdown.generalRevenue)}</strong>
+                <strong className="dept-item-val">{formatMoney(report.deptBreakdown.generalRevenue)}</strong>
               </div>
               <div className="dept-item-sub">
-                {deptBreakdown.generalQty} items sold
-                {totals.totalSales > 0 && ` · ${Math.round((deptBreakdown.generalRevenue / totals.totalSales) * 100)}% of sales`}
+                {report.deptBreakdown.generalQty} items sold
+                {report.totalSales > 0 && ` · ${Math.round((report.deptBreakdown.generalRevenue / report.totalSales) * 100)}% of sales`}
               </div>
             </div>
           </div>
@@ -688,24 +669,24 @@ export function ReportsPage() {
           <div className="channel-breakdown-list">
             <div className="channel-row">
               <span>🍽️ Dine-In Orders</span>
-              <strong>{totals.dineInOrders} orders</strong>
+              <strong>{report.dineInOrders} orders</strong>
             </div>
             <div className="channel-row">
               <span>🥡 Takeaway Orders</span>
-              <strong>{totals.takeawayOrders} orders</strong>
+              <strong>{report.takeawayOrders} orders</strong>
             </div>
             <div className="channel-divider" />
             <div className="channel-row">
               <span>💵 Cash Collected</span>
-              <strong>{formatMoney(totals.cashSales)}</strong>
+              <strong>{formatMoney(report.cashSales)}</strong>
             </div>
             <div className="channel-row">
               <span>💳 Card Payments</span>
-              <strong>{formatMoney(totals.cardSales)}</strong>
+              <strong>{formatMoney(report.cardSales)}</strong>
             </div>
             <div className="channel-row">
               <span>📝 Credit (Udhar)</span>
-              <strong>{formatMoney(totals.creditSales)}</strong>
+              <strong>{formatMoney(report.creditSales)}</strong>
             </div>
           </div>
         </div>

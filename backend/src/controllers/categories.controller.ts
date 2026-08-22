@@ -8,6 +8,6 @@ export async function listHandler(_req: Request, res: Response) {
 
 export async function createHandler(req: Request, res: Response) {
   const body = req.body ?? {};
-  if (!body.id || !body.name) throw new ApiError(400, 'id and name are required');
-  res.status(201).json(await createCategory({ ...body, createdAt: body.createdAt ?? Date.now() }));
+  if (!body.name) throw new ApiError(400, 'name is required');
+  res.status(201).json(await createCategory(body));
 }

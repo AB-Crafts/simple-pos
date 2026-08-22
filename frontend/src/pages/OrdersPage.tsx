@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { db } from '../database/db';
 import type { Sale, SaleItem } from '../types';
 import { formatMoney } from '../utils/money';
 import { formatCustomerBill, printReceiptText } from '../utils/slips';
-import { voidOrder } from '../services/salesService';
+import { voidOrder, getAllSalesWithItems } from '../services/salesService';
 import { SettleModal } from '../components/SettleModal';
 
 interface Props {
@@ -28,17 +27,11 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
   async function loadOrders() {
     setLoading(true);
     try {
-      const allSales = await db.sales.orderBy('createdAt').reverse().toArray();
-      const allItems = await db.saleItems.toArray();
-
-      const map: Record<string, SaleItem[]> = {};
-      for (const item of allItems) {
-        if (!map[item.saleId]) map[item.saleId] = [];
-        map[item.saleId].push(item);
-      }
-
-      setSales(allSales);
-      setItemsMap(map);
+      const data = await getAllSalesWithItems();
+      setSales(data.sales);
+      setItemsMap(data.itemsMap);
+    } catch (err) {
+      console.error('Failed to load orders:', err);
     } finally {
       setLoading(false);
     }

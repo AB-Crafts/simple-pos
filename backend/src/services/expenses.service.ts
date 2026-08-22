@@ -1,76 +1,76 @@
 import { randomUUID } from 'node:crypto';
-import { pool } from '../database/pool.js';
-import type { Expense } from '../models/types.js';
+import { db } from '../database/db.js';
+import { ApiError } from '../utils/ApiError.js';
+import type { Expense, PaymentMethod } from '../models/types.js';
 
 interface ExpenseRow {
   id: string;
   description: string;
-  amount: string;
+  amount: number;
   category: string;
-  payment_method: Expense['paymentMethod'];
+  payment_method: PaymentMethod;
   notes: string | null;
-  created_at: string;
+  created_at: number;
 }
 
 function toExpense(row: ExpenseRow): Expense {
   return {
     id: row.id,
     description: row.description,
-    amount: Number(row.amount),
+    amount: row.amount,
     category: row.category,
     paymentMethod: row.payment_method,
     notes: row.notes,
-    createdAt: Number(row.created_at),
+    createdAt: row.created_at,
   };
 }
 
 export async function listExpenses(from?: number, to?: number): Promise<Expense[]> {
   if (from != null && to != null) {
-    const result = await pool.query<ExpenseRow>(
-      'SELECT * FROM expenses WHERE created_at BETWEEN $1 AND $2 ORDER BY created_at DESC',
-      [from, to]
-    );
-    return result.rows.map(toExpense);
+    const rows = db.prepare(
+      'SELECT * FROM expenses WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC'
+    ).all(from, to) as ExpenseRow[];
+    return rows.map(toExpense);
   }
-  const result = await pool.query<ExpenseRow>('SELECT * FROM expenses ORDER BY created_at DESC LIMIT 200');
-  return result.rows.map(toExpense);
+
+  const rows = db.prepare('SELECT * FROM expenses ORDER BY created_at DESC').all() as ExpenseRow[];
+  return rows.map(toExpense);
 }
 
-/** Idempotent upsert keyed on the expense's own id — safe to re-send from a retried sync. */
-export async function upsertSyncedExpense(expense: Expense): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+export async function recordExpense(input: {
+  description: string;
+  amount: number;
+  category: string;
+  paymentMethod: PaymentMethod;
+  notes?: string;
+  createdAt?: number;
+}): Promise<Expense> {
+  const { description, amount, category, paymentMethod, notes, createdAt } = input;
 
-    const existing = await client.query('SELECT id FROM expenses WHERE id = $1', [expense.id]);
-    if (!existing.rowCount) {
-      await client.query(
-        `INSERT INTO expenses (id, description, amount, category, payment_method, notes, created_at, synced_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [
-          expense.id,
-          expense.description,
-          expense.amount,
-          expense.category,
-          expense.paymentMethod,
-          expense.notes ?? null,
-          expense.createdAt,
-          Date.now(),
-        ]
-      );
-
-      await client.query(
-        `INSERT INTO money_transactions (id, type, amount, reference_id, created_at)
-         VALUES ($1, 'EXPENSE', $2, $3, $4)`,
-        [randomUUID(), expense.amount, expense.id, expense.createdAt]
-      );
-    }
-
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
+  if (!description || !description.trim()) {
+    throw new ApiError(400, 'Expense description is required');
   }
+  if (!amount || amount <= 0) {
+    throw new ApiError(400, 'Expense amount must be greater than zero');
+  }
+
+  const expenseId = randomUUID();
+  const now = createdAt || Date.now();
+
+  const executeTransaction = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO expenses (id, description, amount, category, payment_method, notes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(expenseId, description.trim(), amount, category, paymentMethod, notes?.trim() || null, now);
+
+    db.prepare(`
+      INSERT INTO money_transactions (id, type, amount, reference_id, created_at)
+      VALUES (?, 'EXPENSE', ?, ?, ?)
+    `).run(randomUUID(), amount, expenseId, now);
+  });
+
+  executeTransaction();
+
+  const row = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId) as ExpenseRow;
+  return toExpense(row);
 }

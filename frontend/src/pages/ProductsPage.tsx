@@ -1,9 +1,7 @@
-import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../database/db';
-import { generateId } from '../utils/id';
+import { useEffect, useMemo, useState } from 'react';
+import { apiClient } from '../services/apiClient';
 import { formatMoney, toPaisa, toRupees } from '../utils/money';
-import type { Product, Department } from '../types';
+import type { Product, Category, Department } from '../types';
 
 interface ProductFormData {
   name: string;
@@ -26,8 +24,8 @@ const emptyForm: ProductFormData = {
 };
 
 export function ProductsPage() {
-  const products = useLiveQuery(() => db.products.toArray(), []);
-  const categories = useLiveQuery(() => db.categories.toArray(), []);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [search, setSearch] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<'ALL' | Department>('ALL');
@@ -39,6 +37,23 @@ export function ProductsPage() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const [prods, cats] = await Promise.all([
+        apiClient.get<Product[]>('/products'),
+        apiClient.get<Category[]>('/categories'),
+      ]);
+      setProducts(prods);
+      setCategories(cats);
+    } catch (err) {
+      console.error('Failed to load products/categories:', err);
+    }
+  }
 
   // Filtered product list
   const filteredProducts = useMemo(() => {
@@ -108,38 +123,24 @@ export function ProductsPage() {
 
     setSaving(true);
     try {
-      const now = Date.now();
       const cost = parseFloat(form.costPrice || '0');
       const stockQty = parseInt(form.stock || '0', 10);
 
-      if (editingProduct) {
-        await db.products.update(editingProduct.id, {
-          name: form.name.trim(),
-          costPrice: toPaisa(isNaN(cost) ? 0 : cost),
-          sellingPrice: toPaisa(sell),
-          stock: isNaN(stockQty) ? 0 : stockQty,
-          categoryId: form.categoryId || null,
-          department: form.department,
-          active: form.active,
-          updatedAt: now,
-        });
-        setToast(`Product "${form.name.trim()}" updated!`);
-      } else {
-        await db.products.add({
-          id: generateId(),
-          name: form.name.trim(),
-          categoryId: form.categoryId || null,
-          department: form.department,
-          costPrice: toPaisa(isNaN(cost) ? 0 : cost),
-          sellingPrice: toPaisa(sell),
-          stock: isNaN(stockQty) ? 0 : stockQty,
-          active: form.active,
-          createdAt: now,
-          updatedAt: now,
-        });
-        setToast(`Product "${form.name.trim()}" created!`);
-      }
+      const payload = {
+        id: editingProduct ? editingProduct.id : undefined,
+        name: form.name.trim(),
+        costPrice: toPaisa(isNaN(cost) ? 0 : cost),
+        sellingPrice: toPaisa(sell),
+        stock: isNaN(stockQty) ? 0 : stockQty,
+        categoryId: form.categoryId || null,
+        department: form.department,
+        active: form.active,
+      };
 
+      await apiClient.post<Product>('/products', payload);
+      setToast(`Product "${form.name.trim()}" ${editingProduct ? 'updated' : 'created'}!`);
+
+      await loadData();
       setShowModal(false);
       setForm(emptyForm);
     } catch (err: any) {
@@ -150,9 +151,13 @@ export function ProductsPage() {
   }
 
   async function handleToggleActive(p: Product) {
-    const updated = !p.active;
-    await db.products.update(p.id, { active: updated, updatedAt: Date.now() });
-    setToast(`Product "${p.name}" ${updated ? 'activated' : 'deactivated'}`);
+    try {
+      const updated = await apiClient.patch<Product>(`/products/${p.id}/toggle-active`, {});
+      setToast(`Product "${p.name}" ${updated.active ? 'activated' : 'deactivated'}`);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle product status');
+    }
   }
 
   // Live profit calculation for modal form

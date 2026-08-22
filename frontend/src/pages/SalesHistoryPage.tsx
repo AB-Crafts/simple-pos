@@ -1,16 +1,30 @@
-import { useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../database/db';
+import { useEffect, useState } from 'react';
+import { getAllSalesWithItems } from '../services/salesService';
 import { formatMoney } from '../utils/money';
 import { formatCustomerBill, formatChaiSlip, formatParhataSlip, printReceiptText } from '../utils/slips';
 import type { Sale, SaleItem } from '../types';
 
 export function SalesHistoryPage() {
-  const sales = useLiveQuery(
-    () => db.sales.orderBy('createdAt').reverse().toArray(),
-    []
-  );
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [itemsMap, setItemsMap] = useState<Record<string, SaleItem[]>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSales() {
+      setLoading(true);
+      try {
+        const data = await getAllSalesWithItems();
+        setSales(data.sales);
+        setItemsMap(data.itemsMap);
+      } catch (err) {
+        console.error('Failed to load sales history:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSales();
+  }, []);
 
   return (
     <div className="sales-page">
@@ -20,16 +34,23 @@ export function SalesHistoryPage() {
       </div>
 
       <div className="sales-list">
-        {(sales ?? []).map((sale) => (
-          <SaleRow
-            key={sale.id}
-            sale={sale}
-            expanded={expandedId === sale.id}
-            onToggle={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
-          />
-        ))}
-        {sales?.length === 0 && (
-          <p className="empty-hint">No sales yet — completed and pending sales will appear here.</p>
+        {loading ? (
+          <p className="empty-hint">Loading sales history...</p>
+        ) : (
+          <>
+            {sales.map((sale) => (
+              <SaleRow
+                key={sale.id}
+                sale={sale}
+                items={itemsMap[sale.id] || []}
+                expanded={expandedId === sale.id}
+                onToggle={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
+              />
+            ))}
+            {sales.length === 0 && (
+              <p className="empty-hint">No sales yet — completed and pending sales will appear here.</p>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -38,21 +59,15 @@ export function SalesHistoryPage() {
 
 function SaleRow({
   sale,
+  items,
   expanded,
   onToggle,
 }: {
   sale: Sale;
+  items: SaleItem[];
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const items = useLiveQuery(
-    () =>
-      expanded
-        ? db.saleItems.where('saleId').equals(sale.id).toArray()
-        : Promise.resolve<SaleItem[]>([]),
-    [expanded, sale.id]
-  );
-
   function handlePrintBill(e: React.MouseEvent) {
     e.stopPropagation();
     if (!items || items.length === 0) return;
@@ -117,7 +132,7 @@ function SaleRow({
       {expanded && (
         <div className="sale-row__items">
           <div className="sale-row__items-list">
-            {(items ?? []).map((item) => (
+            {items.map((item) => (
               <div key={item.id} className="sale-row__item">
                 <span>
                   {item.productName} {item.department && `(${item.department})`} × {item.quantity}

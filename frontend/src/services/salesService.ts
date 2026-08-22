@@ -1,10 +1,9 @@
-import { db } from '../database/db';
-import { generateId, generateSaleDisplayId } from '../utils/id';
+import { apiClient } from './apiClient';
+import { generateSaleDisplayId } from '../utils/id';
 import { sumPaisa } from '../utils/money';
 import type {
   CartLine,
   PaymentMethod,
-  MoneyTransactionType,
   OrderType,
   OrderStatus,
   Sale,
@@ -70,7 +69,7 @@ export function partitionDepartmentItems(lines: { productId: string; name?: stri
 
 /**
  * Previews an order snapshot before committing to the database.
- * Pure in-memory calculation — does not write anything to Dexie/database.
+ * Pure in-memory calculation — does not write anything to database.
  */
 export async function prepareOrderPreview(
   cart: CartLine[],
@@ -83,13 +82,20 @@ export async function prepareOrderPreview(
   const total = subtotal - discount;
 
   const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const salesToday = await db.sales.where('createdAt').aboveOrEqual(startOfDay).count();
+
+  let salesToday = 0;
+  try {
+    const countRes = await apiClient.get<{ count: number }>('/sales/pending-count');
+    salesToday = countRes.count;
+  } catch {
+    salesToday = 0;
+  }
+
   const orderNumber = editingSale ? editingSale.orderNumber : salesToday + 1;
   const displayId = editingSale ? editingSale.displayId : generateSaleDisplayId(now, salesToday);
 
   const previewItems: SaleItem[] = cart.map((line) => ({
-    id: generateId(),
+    id: 'preview-' + line.productId,
     saleId: editingSale?.id || 'preview',
     productId: line.productId,
     productName: line.name,
@@ -160,7 +166,7 @@ export async function prepareOrderPreview(
     printedDepartmentItems: {},
     createdAt: now.getTime(),
     updatedAt: now.getTime(),
-    syncStatus: 'PENDING',
+    syncStatus: 'SYNCED',
   };
 
   return {
@@ -174,132 +180,17 @@ export async function prepareOrderPreview(
 }
 
 /**
- * Creates a new order (either PENDING for Dine-In / Takeaway or directly PAID).
+ * Creates a new order via SQLite backend (either PENDING or directly PAID).
  */
 export async function createOrder(input: CreateOrderInput): Promise<OrderOperationResult> {
-  const {
-    cart,
-    orderType,
-    takenBy,
-    status = 'PENDING',
-    paymentMethod = 'CASH',
-    amountReceived = null,
-  } = input;
+  const result = await apiClient.post<{ sale: Sale; items: SaleItem[] }>('/sales', input);
 
-  if (cart.length === 0) throw new Error('Cannot create an order with an empty cart');
-
-  const subtotal = sumPaisa(cart.map((l) => l.unitPrice * l.quantity));
-  const discount = 0;
-  const total = subtotal - discount;
-
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const salesToday = await db.sales.where('createdAt').aboveOrEqual(startOfDay).count();
-  const orderNumber = salesToday + 1;
-
-  const saleId = generateId();
-  const changeGiven =
-    paymentMethod === 'CASH' && amountReceived != null && status === 'PAID'
-      ? amountReceived - total
-      : null;
-
-  // Build printed department items tracker for all items on initial creation
-  const printedDepartmentItems: Record<string, number> = {};
-  for (const line of cart) {
-    const itemKey = getDepartmentItemKey(line);
-    printedDepartmentItems[itemKey] = (printedDepartmentItems[itemKey] ?? 0) + line.quantity;
-    printedDepartmentItems[line.productId] = (printedDepartmentItems[line.productId] ?? 0) + line.quantity;
-  }
-
-  const newSale: Sale = {
-    id: saleId,
-    displayId: generateSaleDisplayId(now, salesToday),
-    orderNumber,
-    orderType,
-    status,
-    takenBy: takenBy.trim() || (orderType === 'DINE_IN' ? 'Waiter' : 'Cashier'),
-    subtotal,
-    discount,
-    total,
-    paymentMethod,
-    amountReceived: status === 'PAID' && paymentMethod === 'CASH' ? amountReceived : null,
-    changeGiven,
-    voided: false,
-    printedDepartmentItems,
-    createdAt: now.getTime(),
-    updatedAt: now.getTime(),
-    syncStatus: 'PENDING',
-  };
-
-  const createdItems: SaleItem[] = [];
-
-  await db.transaction(
-    'rw',
-    db.sales,
-    db.saleItems,
-    db.products,
-    db.moneyTransactions,
-    db.syncQueue,
-    async () => {
-      await db.sales.add(newSale);
-
-      for (const line of cart) {
-        const product = await db.products.get(line.productId);
-        const item: SaleItem = {
-          id: generateId(),
-          saleId,
-          productId: line.productId,
-          productName: line.name,
-          department: line.department ?? product?.department,
-          unit: line.unit ?? product?.unit,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          costPrice: product?.costPrice ?? 0,
-          total: line.unitPrice * line.quantity,
-        };
-
-        await db.saleItems.add(item);
-        createdItems.push(item);
-
-        if (status === 'PAID' && product) {
-          const newStock = product.stock - line.quantity;
-          await db.products.update(line.productId, {
-            stock: newStock < 0 ? 0 : newStock,
-            updatedAt: Date.now(),
-          });
-        }
-      }
-
-      if (status === 'PAID') {
-        const txnType: MoneyTransactionType =
-          paymentMethod === 'CASH' ? 'CASH_SALE' : paymentMethod === 'CARD' ? 'CARD_SALE' : 'CREDIT_SALE';
-
-        await db.moneyTransactions.add({
-          id: generateId(),
-          type: txnType,
-          amount: total,
-          referenceId: saleId,
-          createdAt: now.getTime(),
-        });
-      }
-
-      await db.syncQueue.add({
-        id: generateId(),
-        entity: 'sale',
-        entityId: saleId,
-        status: 'PENDING',
-        attempts: 0,
-        createdAt: now.getTime(),
-      });
-    }
-  );
-
-  const { chaiItems, parhataItems } = partitionDepartmentItems(cart);
+  const { chaiItems, parhataItems } = partitionDepartmentItems(input.cart);
 
   return {
-    saleId,
-    sale: newSale,
-    items: createdItems,
+    saleId: result.sale.id,
+    sale: result.sale,
+    items: result.items,
     chaiItems,
     parhataItems,
     isSupplementary: false,
@@ -307,7 +198,7 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderOperati
 }
 
 /**
- * Updates an existing pending order (e.g. customer added new items to their table bill).
+ * Updates an existing pending order.
  * Identifies ONLY the additional/new items and prepares an add-on kitchen slip.
  */
 export async function updatePendingOrder(
@@ -315,20 +206,10 @@ export async function updatePendingOrder(
   updatedCart: CartLine[],
   takenBy?: string
 ): Promise<OrderOperationResult> {
-  const existingSale = await db.sales.get(orderId);
-  if (!existingSale) throw new Error(`Order ${orderId} not found`);
-  if (existingSale.voided) throw new Error('Cannot modify a voided order');
-  if (updatedCart.length === 0) throw new Error('Order cannot be empty');
-
-  const subtotal = sumPaisa(updatedCart.map((l) => l.unitPrice * l.quantity));
-  const discount = existingSale.discount;
-  const total = subtotal - discount;
-  const now = Date.now();
+  const existingRes = await apiClient.get<{ sale: Sale; items: SaleItem[] }>(`/sales/${orderId}`);
+  const existingSale = existingRes.sale;
 
   const previousPrinted = existingSale.printedDepartmentItems ?? {};
-  const newPrinted: Record<string, number> = { ...previousPrinted };
-
-  // Calculate delta: strictly the newly added items and increased quantities
   const deltaLines: DepartmentItemSnapshot[] = [];
 
   for (const line of updatedCart) {
@@ -344,54 +225,19 @@ export async function updatePendingOrder(
         department: line.department,
       });
     }
-
-    newPrinted[itemKey] = Math.max(previousPrinted[itemKey] ?? 0, line.quantity);
-    newPrinted[line.productId] = Math.max(previousPrinted[line.productId] ?? 0, line.quantity);
   }
 
-  const updatedSale: Sale = {
-    ...existingSale,
-    takenBy: takenBy ? takenBy.trim() : existingSale.takenBy,
-    subtotal,
-    total,
-    printedDepartmentItems: newPrinted,
-    updatedAt: now,
-    syncStatus: 'PENDING',
-  };
-
-  const updatedItems: SaleItem[] = [];
-
-  await db.transaction('rw', db.sales, db.saleItems, db.products, async () => {
-    await db.sales.put(updatedSale);
-
-    // Replace sale items with updated cart
-    await db.saleItems.where('saleId').equals(orderId).delete();
-
-    for (const line of updatedCart) {
-      const product = await db.products.get(line.productId);
-      const item: SaleItem = {
-        id: generateId(),
-        saleId: orderId,
-        productId: line.productId,
-        productName: line.name,
-        department: line.department ?? product?.department,
-        unit: line.unit ?? product?.unit,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        costPrice: product?.costPrice ?? 0,
-        total: line.unitPrice * line.quantity,
-      };
-      await db.saleItems.add(item);
-      updatedItems.push(item);
-    }
+  const result = await apiClient.put<{ sale: Sale; items: SaleItem[] }>(`/sales/${orderId}`, {
+    cart: updatedCart,
+    takenBy,
   });
 
   const { chaiItems, parhataItems } = partitionDepartmentItems(deltaLines);
 
   return {
     saleId: orderId,
-    sale: updatedSale,
-    items: updatedItems,
+    sale: result.sale,
+    items: result.items,
     deltaItems: deltaLines,
     chaiItems,
     parhataItems,
@@ -407,108 +253,32 @@ export async function settlePendingOrder(
   paymentMethod: PaymentMethod,
   amountReceived: number | null
 ): Promise<Sale> {
-  const sale = await db.sales.get(orderId);
-  if (!sale) throw new Error(`Order ${orderId} not found`);
-  if (sale.status === 'PAID') throw new Error('Order is already paid');
-  if (sale.voided) throw new Error('Cannot settle a voided order');
-
-  const items = await db.saleItems.where('saleId').equals(orderId).toArray();
-  const now = Date.now();
-  const changeGiven =
-    paymentMethod === 'CASH' && amountReceived != null ? amountReceived - sale.total : null;
-
-  const settledSale: Sale = {
-    ...sale,
-    status: 'PAID',
+  return apiClient.post<Sale>(`/sales/${orderId}/settle`, {
     paymentMethod,
-    amountReceived: paymentMethod === 'CASH' ? amountReceived : null,
-    changeGiven,
-    updatedAt: now,
-    syncStatus: 'PENDING',
-  };
-
-  await db.transaction(
-    'rw',
-    db.sales,
-    db.products,
-    db.moneyTransactions,
-    db.syncQueue,
-    async () => {
-      await db.sales.put(settledSale);
-
-      // Decrement product stock upon clearance
-      for (const item of items) {
-        if (item.productId) {
-          const product = await db.products.get(item.productId);
-          if (product) {
-            const newStock = product.stock - item.quantity;
-            await db.products.update(item.productId, {
-              stock: newStock < 0 ? 0 : newStock,
-              updatedAt: now,
-            });
-          }
-        }
-      }
-
-      const txnType: MoneyTransactionType =
-        paymentMethod === 'CASH' ? 'CASH_SALE' : paymentMethod === 'CARD' ? 'CARD_SALE' : 'CREDIT_SALE';
-
-      await db.moneyTransactions.add({
-        id: generateId(),
-        type: txnType,
-        amount: sale.total,
-        referenceId: orderId,
-        createdAt: now,
-      });
-
-      await db.syncQueue.add({
-        id: generateId(),
-        entity: 'sale',
-        entityId: orderId,
-        status: 'PENDING',
-        attempts: 0,
-        createdAt: now,
-      });
-    }
-  );
-
-  return settledSale;
+    amountReceived,
+  });
 }
 
 /**
  * Voids/cancels an active or completed order.
  */
 export async function voidOrder(orderId: string): Promise<void> {
-  const sale = await db.sales.get(orderId);
-  if (!sale) throw new Error(`Order ${orderId} not found`);
+  await apiClient.post(`/sales/${orderId}/void`, {});
+}
 
-  const wasPaid = sale.status === 'PAID';
-  const items = await db.saleItems.where('saleId').equals(orderId).toArray();
-  const now = Date.now();
+/**
+ * Fetches all sales with line items for OrdersPage and SalesHistoryPage.
+ */
+export async function getAllSalesWithItems(): Promise<{ sales: Sale[]; itemsMap: Record<string, SaleItem[]> }> {
+  return apiClient.get<{ sales: Sale[]; itemsMap: Record<string, SaleItem[]> }>('/sales/all-with-items');
+}
 
-  await db.transaction('rw', db.sales, db.products, async () => {
-    await db.sales.update(orderId, {
-      voided: true,
-      status: 'VOIDED',
-      updatedAt: now,
-      syncStatus: 'PENDING',
-    });
-
-    // If it was already paid and stock was decremented, restore stock
-    if (wasPaid) {
-      for (const item of items) {
-        if (item.productId) {
-          const product = await db.products.get(item.productId);
-          if (product) {
-            await db.products.update(item.productId, {
-              stock: product.stock + item.quantity,
-              updatedAt: now,
-            });
-          }
-        }
-      }
-    }
-  });
+/**
+ * Fetches pending orders count.
+ */
+export async function getPendingOrdersCount(): Promise<number> {
+  const res = await apiClient.get<{ count: number }>('/sales/pending-count');
+  return res.count;
 }
 
 /** Legacy wrapper for backwards compatibility */

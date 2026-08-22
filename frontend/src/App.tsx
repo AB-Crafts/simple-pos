@@ -8,27 +8,14 @@ import { SalesHistoryPage } from './pages/SalesHistoryPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { MoneyFlowPage } from './pages/MoneyFlowPage';
 import { ReportsPage } from './pages/ReportsPage';
-import { seedIfEmpty } from './database/seed';
-import { db } from './database/db';
-import { startAutoSync } from './services/syncService';
+import { getPendingOrdersCount } from './services/salesService';
 import type { Sale, SaleItem } from './types';
 
 export default function App() {
   const [page, setPage] = useState<Page>('pos');
-  const [ready, setReady] = useState(false);
   const [clock, setClock] = useState(new Date());
   const [editingOrder, setEditingOrder] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    seedIfEmpty().finally(() => setReady(true));
-  }, []);
-
-  useEffect(() => {
-    // Best-effort background push of queued sales/expenses/products to the
-    // backend. Runs independently of the UI — never blocks a sale.
-    return startAutoSync();
-  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 1000 * 30);
@@ -39,10 +26,10 @@ export default function App() {
     // Keep pending count updated for navigation badge
     async function updateCount() {
       try {
-        const count = await db.sales.where('status').equals('PENDING').count();
+        const count = await getPendingOrdersCount();
         setPendingCount(count);
       } catch {
-        // ignore if initializing
+        // ignore if initializing or server starting
       }
     }
     updateCount();
@@ -54,8 +41,6 @@ export default function App() {
     setEditingOrder({ sale, items });
     setPage('pos');
   }
-
-  if (!ready) return null;
 
   return (
     <div className="app-shell">
