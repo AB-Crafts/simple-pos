@@ -426,6 +426,28 @@ export function POSPage({
         </div>
       </div>
 
+      {/* Floating Cart Bar for Mobile Viewports */}
+      {cart.lines.length > 0 && (
+        <div
+          className="mobile-cart-float-bar"
+          onClick={() => {
+            const sidebar = document.querySelector('.pos-right-panel');
+            sidebar?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        >
+          <div className="mobile-cart-float-info">
+            <span className="mobile-cart-float-badge">
+              🛒 {cart.lines.reduce((sum, l) => sum + l.quantity, 0)} items
+            </span>
+            <span className="mobile-cart-float-total">{formatMoney(cart.total)}</span>
+          </div>
+          <button type="button" className="mobile-cart-float-btn">
+            View Bill & Settle →
+          </button>
+        </div>
+      )}
+
+
       {/* Slip Modal Preview & Confirmation */}
       {slipModalResult && (
         <SlipModal

@@ -257,31 +257,51 @@ export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
     <div className="product-panel">
       {/* Search & Category Filter Toolbar */}
       <div className="product-panel__toolbar">
-        <input
-          type="text"
-          placeholder="Search product..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
-        />
-        <div className="category-tabs">
+        <div className="product-search-wrap">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            placeholder="Search menu..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="search-input"
+          />
+          {search && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="category-tabs" role="tablist">
           <button
+            type="button"
             className={`category-tab ${categoryId === 'all' ? 'category-tab--active' : ''}`}
             onClick={() => setCategoryId('all')}
+            role="tab"
+            aria-selected={categoryId === 'all'}
           >
             All
           </button>
           {uniqueCategories.map((c) => (
             <button
               key={c.id}
+              type="button"
               className={`category-tab ${categoryId === c.id ? 'category-tab--active' : ''}`}
               onClick={() => setCategoryId(c.id)}
+              role="tab"
+              aria-selected={categoryId === c.id}
             >
               {c.name}
             </button>
           ))}
         </div>
       </div>
+
 
       <div className="product-scroll-area">
         {/* ⭐ Frequently Sold / Quick Order Items Section */}

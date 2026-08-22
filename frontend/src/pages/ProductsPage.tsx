@@ -292,8 +292,8 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {/* Products Table Card */}
-      <div className="products-table-card">
+      {/* Products Table Card (Desktop / Tablet) */}
+      <div className="products-table-card desktop-only">
         <table className="products-modern-table">
           <thead>
             <tr>
@@ -394,6 +394,85 @@ export function ProductsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Products Mobile Card List (<= 768px) */}
+      <div className="products-mobile-list mobile-only">
+        {filteredProducts.map((p) => {
+          const catName = categories?.find((c) => c.id === p.categoryId)?.name ?? '—';
+          const profit = p.sellingPrice - p.costPrice;
+          return (
+            <div key={p.id} className={`product-card-mobile ${!p.active ? 'product-card-mobile--inactive' : ''}`}>
+              <div className="product-card-mobile__header">
+                <div>
+                  <h4 className="product-card-mobile__title">{p.name}</h4>
+                  <div className="product-card-mobile__cat">{catName}</div>
+                </div>
+                <span className={`dept-badge dept-badge--${p.department?.toLowerCase() || 'general'}`}>
+                  {p.department === 'CHAI' ? '☕ Chai' : p.department === 'PARHATA' ? '🫓 Parhata' : '📦 General'}
+                </span>
+              </div>
+
+              <div className="product-card-mobile__pricing">
+                <div className="price-item">
+                  <span className="price-label">Selling:</span>
+                  <strong className="price-val">{formatMoney(p.sellingPrice)}</strong>
+                </div>
+                {p.costPrice > 0 && (
+                  <div className="price-item">
+                    <span className="price-label">Cost:</span>
+                    <span className="price-val text-muted">{formatMoney(p.costPrice)}</span>
+                  </div>
+                )}
+                {profit > 0 && p.costPrice > 0 && (
+                  <div className="price-item">
+                    <span className="price-label">Profit:</span>
+                    <span className="price-val text-success">+{formatMoney(profit)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="product-card-mobile__footer">
+                <div className="product-card-mobile__status">
+                  <span
+                    className={`stock-badge ${
+                      p.stock <= 0
+                        ? 'stock-badge--out'
+                        : p.stock <= 5
+                        ? 'stock-badge--low'
+                        : 'stock-badge--ok'
+                    }`}
+                  >
+                    {p.stock <= 0 ? 'Out of stock' : `${p.stock} units`}
+                  </span>
+                  <button
+                    className={`status-toggle-pill ${p.active ? 'status-toggle-pill--active' : 'status-toggle-pill--inactive'}`}
+                    onClick={() => handleToggleActive(p)}
+                  >
+                    {p.active ? 'Active' : 'Inactive'}
+                  </button>
+                </div>
+
+                <button className="btn btn-sm btn-secondary" onClick={() => startEdit(p)}>
+                  ✏️ Edit
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredProducts.length === 0 && (
+          <div className="empty-state-wrap" style={{ padding: '32px 16px' }}>
+            <span className="empty-icon">📦</span>
+            <p className="empty-title">No products found</p>
+            <p className="empty-desc">
+              {search || departmentFilter !== 'ALL' || stockFilter !== 'ALL'
+                ? 'Try clearing or changing your search filters.'
+                : 'Click "+ Add New Product" above to create your first menu item.'}
+            </p>
+          </div>
+        )}
+      </div>
+
 
       {/* Add / Edit Product Modal */}
       {showModal && (

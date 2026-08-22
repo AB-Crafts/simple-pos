@@ -258,8 +258,8 @@ export function ExpensesPage() {
         </div>
       </div>
 
-      {/* Expenses Table */}
-      <div className="expenses-table-card">
+      {/* Expenses Table (Desktop / Tablet) */}
+      <div className="expenses-table-card desktop-only">
         <table className="expenses-modern-table">
           <thead>
             <tr>
@@ -328,6 +328,52 @@ export function ExpensesPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Expenses Mobile Card List (<= 768px) */}
+      <div className="expenses-mobile-list mobile-only">
+        {filteredExpenses.map((e) => {
+          const d = new Date(e.createdAt);
+          const isToday = new Date().toDateString() === d.toDateString();
+          return (
+            <div key={e.id} className="expense-card-mobile">
+              <div className="expense-card-mobile__header">
+                <div>
+                  <h4 className="expense-card-mobile__title">{e.description}</h4>
+                  <div className="expense-card-mobile__time">
+                    {isToday ? 'Today' : d.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' })}{' '}
+                    • {d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                <strong className="expense-card-mobile__amount">{formatMoney(e.amount)}</strong>
+              </div>
+
+              {e.notes && <p className="expense-card-mobile__notes">{e.notes}</p>}
+
+              <div className="expense-card-mobile__footer">
+                <span className="expense-cat-badge">
+                  {getCategoryEmoji(e.category)} {e.category}
+                </span>
+                <span className="expense-payment-pill">
+                  {e.paymentMethod === 'CASH' ? '💵 Cash' : e.paymentMethod === 'CARD' ? '💳 Card' : '📝 Credit'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredExpenses.length === 0 && (
+          <div className="empty-state-wrap" style={{ padding: '32px 16px' }}>
+            <span className="empty-icon">💸</span>
+            <p className="empty-title">{loading ? 'Loading expenses...' : 'No expenses found'}</p>
+            <p className="empty-desc">
+              {search || categoryFilter !== 'ALL' || timeframeFilter !== 'ALL'
+                ? 'No expenses matched the chosen filter.'
+                : 'Click "+ Record Expense" above to add your first expense entry.'}
+            </p>
+          </div>
+        )}
+      </div>
+
 
       {/* Add Expense Modal */}
       {showModal && (

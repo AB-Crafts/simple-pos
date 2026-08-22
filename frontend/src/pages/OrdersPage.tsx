@@ -168,39 +168,150 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
           <p>No orders found matching this filter.</p>
         </div>
       ) : (
-        <div className="table-responsive">
-          <table className="data-table orders-table">
-            <thead>
-              <tr>
-                <th style={{ width: '80px' }}>Order #</th>
-                <th style={{ width: '110px' }}>Status</th>
-                <th style={{ width: '100px' }}>Type</th>
-                <th style={{ width: '140px' }}>Taken By</th>
-                <th>The Order / Quantity</th>
-                <th style={{ width: '110px', textAlign: 'right' }}>Total</th>
-                <th style={{ width: '280px', textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSales.map((sale) => {
-                const items = itemsMap[sale.id] || [];
-                const isPending = sale.status === 'PENDING';
-                const isPaid = sale.status === 'PAID';
-                const isVoided = sale.status === 'VOIDED' || sale.voided;
+        <>
+          {/* Desktop & Tablet Table View */}
+          <div className="table-responsive desktop-only">
+            <table className="data-table orders-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '90px' }}>Order #</th>
+                  <th style={{ width: '110px' }}>Status</th>
+                  <th style={{ width: '110px' }}>Type</th>
+                  <th style={{ width: '130px' }}>Taken By</th>
+                  <th>Order Items</th>
+                  <th style={{ width: '120px', textAlign: 'right' }}>Total</th>
+                  <th style={{ width: '240px', textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSales.map((sale) => {
+                  const items = itemsMap[sale.id] || [];
+                  const isPending = sale.status === 'PENDING';
+                  const isPaid = sale.status === 'PAID';
+                  const isVoided = sale.status === 'VOIDED' || sale.voided;
 
-                return (
-                  <tr key={sale.id} className={isPending ? 'order-row--pending' : ''}>
-                    <td className="order-number-cell">
-                      <strong>#{sale.orderNumber}</strong>
-                      <div className="order-time-sub">
+                  return (
+                    <tr key={sale.id} className={isPending ? 'order-row--pending' : ''}>
+                      <td className="order-number-cell">
+                        <strong>#{sale.orderNumber}</strong>
+                        <div className="order-time-sub">
+                          {new Date(sale.createdAt).toLocaleTimeString('en-PK', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                      </td>
+
+                      <td>
+                        {isPending ? (
+                          <span className="status-badge status-badge--pending">PENDING</span>
+                        ) : isPaid ? (
+                          <span className="status-badge status-badge--paid">PAID</span>
+                        ) : (
+                          <span className="status-badge status-badge--voided">VOIDED</span>
+                        )}
+                      </td>
+
+                      <td>
+                        <span className={`type-badge ${sale.orderType === 'DINE_IN' ? 'type-badge--dinein' : 'type-badge--takeaway'}`}>
+                          {sale.orderType === 'DINE_IN' ? '☕ Dine In' : '🛍️ Takeaway'}
+                        </span>
+                      </td>
+
+                      <td className="order-taken-by-cell">
+                        <span className="waiter-name-pill">{sale.takenBy}</span>
+                      </td>
+
+                      <td className="order-items-cell">
+                        <div className="order-items-summary">
+                          {items.length === 0 ? (
+                            <span className="text-muted">No items</span>
+                          ) : (
+                            items.map((item, idx) => (
+                              <span key={item.id || idx} className="order-item-tag">
+                                {item.productName} <b>x{item.quantity}</b>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="order-total-cell" style={{ textAlign: 'right' }}>
+                        <strong>{formatMoney(sale.total)}</strong>
+                      </td>
+
+                      <td className="order-actions-cell" style={{ textAlign: 'center' }}>
+                        <div className="action-buttons-group">
+                          {isPending && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-success"
+                                onClick={() => setSettleOrderTarget({ sale, items })}
+                                title="Clear and settle this bill"
+                              >
+                                💵 PAID
+                              </button>
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => onEditOrder(sale, items)}
+                                title="Add more items or adjust in POS"
+                              >
+                                ✏️ EDIT
+                              </button>
+                              {!isVoided && (
+                                <button
+                                  className="btn btn-sm btn-danger-outline"
+                                  onClick={() => handleVoid(sale.id)}
+                                  title="Cancel / Void order"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {isPaid && (
+                            <button
+                              className="btn btn-sm btn-ghost"
+                              onClick={() => handlePrintCustomerBill(sale)}
+                              title="Print customer total bill slip"
+                            >
+                              🧾 Print Bill
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card List View (<= 768px) */}
+          <div className="orders-mobile-list mobile-only">
+            {filteredSales.map((sale) => {
+              const items = itemsMap[sale.id] || [];
+              const isPending = sale.status === 'PENDING';
+              const isPaid = sale.status === 'PAID';
+              const isVoided = sale.status === 'VOIDED' || sale.voided;
+
+              return (
+                <div key={sale.id} className={`order-card-mobile ${isPending ? 'order-card-mobile--pending' : ''}`}>
+                  <div className="order-card-mobile__top">
+                    <div className="order-card-mobile__id">
+                      <strong>Order #{sale.orderNumber}</strong>
+                      <span className="order-card-mobile__time">
                         {new Date(sale.createdAt).toLocaleTimeString('en-PK', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}
-                      </div>
-                    </td>
-
-                    <td>
+                      </span>
+                    </div>
+                    <div className="order-card-mobile__badges">
+                      <span className={`type-badge ${sale.orderType === 'DINE_IN' ? 'type-badge--dinein' : 'type-badge--takeaway'}`}>
+                        {sale.orderType === 'DINE_IN' ? '☕ Dine In' : '🛍️ Takeaway'}
+                      </span>
                       {isPending ? (
                         <span className="status-badge status-badge--pending">PENDING</span>
                       ) : isPaid ? (
@@ -208,84 +319,70 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                       ) : (
                         <span className="status-badge status-badge--voided">VOIDED</span>
                       )}
-                    </td>
+                    </div>
+                  </div>
 
-                    <td>
-                      <span className={`type-badge ${sale.orderType === 'DINE_IN' ? 'type-badge--dinein' : 'type-badge--takeaway'}`}>
-                        {sale.orderType === 'DINE_IN' ? '☕ Dine In' : '🛍️ Takeaway'}
+                  <div className="order-card-mobile__waiter">
+                    <span className="waiter-label">Server:</span>
+                    <span className="waiter-name-pill">{sale.takenBy}</span>
+                  </div>
+
+                  <div className="order-card-mobile__items">
+                    {items.map((item, idx) => (
+                      <span key={item.id || idx} className="order-item-tag">
+                        {item.productName} <b>x{item.quantity}</b>
                       </span>
-                    </td>
+                    ))}
+                  </div>
 
-                    <td className="order-taken-by-cell">
-                      <span className="waiter-name-pill">{sale.takenBy}</span>
-                    </td>
-
-                    <td className="order-items-cell">
-                      <div className="order-items-summary">
-                        {items.length === 0 ? (
-                          <span className="text-muted">No items</span>
-                        ) : (
-                          items.map((item, idx) => (
-                            <span key={item.id || idx} className="order-item-tag">
-                              {item.productName} <b>x{item.quantity}</b>
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="order-total-cell" style={{ textAlign: 'right' }}>
+                  <div className="order-card-mobile__footer">
+                    <div className="order-card-mobile__total">
+                      <span className="total-label">Total:</span>
                       <strong>{formatMoney(sale.total)}</strong>
-                    </td>
+                    </div>
 
-                    <td className="order-actions-cell" style={{ textAlign: 'center' }}>
-                      <div className="action-buttons-group">
-                        {isPending && (
-                          <>
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() => setSettleOrderTarget({ sale, items })}
-                              title="Clear and settle this bill"
-                            >
-                              💵 PAID
-                            </button>
-                            <button
-                              className="btn btn-sm btn-secondary"
-                              onClick={() => onEditOrder(sale, items)}
-                              title="Add more items or adjust quantities in POS"
-                            >
-                              ✏️ EDIT
-                            </button>
-                            {!isVoided && (
-                              <button
-                                className="btn btn-sm btn-danger-outline"
-                                onClick={() => handleVoid(sale.id)}
-                                title="Cancel / Void order"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {isPaid && (
+                    <div className="order-card-mobile__actions">
+                      {isPending && (
+                        <>
                           <button
-                            className="btn btn-sm btn-ghost"
-                            onClick={() => handlePrintCustomerBill(sale)}
-                            title="Print customer total bill slip on demand"
+                            className="btn btn-sm btn-success"
+                            onClick={() => setSettleOrderTarget({ sale, items })}
                           >
-                            🧾 Print Bill
+                            💵 PAID
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => onEditOrder(sale, items)}
+                          >
+                            ✏️ EDIT
+                          </button>
+                          {!isVoided && (
+                            <button
+                              className="btn btn-sm btn-danger-outline"
+                              onClick={() => handleVoid(sale.id)}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {isPaid && (
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => handlePrintCustomerBill(sale)}
+                        >
+                          🧾 Print Bill
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
+
 
       {settleOrderTarget && (
         <SettleModal

@@ -163,10 +163,10 @@ export function SlipModal({
           </div>
         )}
 
-        <div className="slip-preview-container" style={{ gap: '16px', flexWrap: 'wrap' }}>
+        <div className="slip-preview-container">
           {(viewMode === 'both' || viewMode === 'chai') && hasChai && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+            <div className="slip-preview-column">
+              <div className="slip-dept-title slip-dept-title--chai">
                 ☕ SLIP 1: CHAI DEPARTMENT
               </div>
               <pre className="receipt-paper">{chaiSlipText}</pre>
@@ -174,14 +174,15 @@ export function SlipModal({
           )}
 
           {(viewMode === 'both' || viewMode === 'parhata') && hasParhata && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', marginBottom: '6px' }}>
+            <div className="slip-preview-column">
+              <div className="slip-dept-title slip-dept-title--parhata">
                 🫓 SLIP 2: PARHATA DEPARTMENT
               </div>
               <pre className="receipt-paper">{parhataSlipText}</pre>
             </div>
           )}
         </div>
+
 
         <div className="slip-modal-actions">
           <div className="slip-modal-actions__left">
