@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '../database/db.js';
+import { ApiError } from '../utils/ApiError.js';
 import type { Waiter } from '../models/types.js';
 
 interface WaiterRow {
@@ -44,7 +45,7 @@ export async function createWaiter(input: { id?: string; name: string; active?: 
 
 export async function toggleWaiterActive(id: string): Promise<Waiter> {
   const row = db.prepare('SELECT * FROM waiters WHERE id = ?').get(id) as WaiterRow | undefined;
-  if (!row) throw new Error('Waiter not found');
+  if (!row) throw new ApiError(404, 'Waiter not found');
 
   const updatedActive = row.active ? 0 : 1;
   db.prepare('UPDATE waiters SET active = ? WHERE id = ?').run(updatedActive, id);
@@ -52,3 +53,4 @@ export async function toggleWaiterActive(id: string): Promise<Waiter> {
   const updatedRow = db.prepare('SELECT * FROM waiters WHERE id = ?').get(id) as WaiterRow;
   return toWaiter(updatedRow);
 }
+

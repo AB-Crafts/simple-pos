@@ -11,7 +11,7 @@ import { moneyFlowRoutes } from './routes/moneyFlow.routes.js';
 import { reportsRoutes } from './routes/reports.routes.js';
 import { settingsRoutes } from './routes/settings.routes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import './database/db.js'; // Ensures SQLite DB is initialized & seeded
+import { closeDatabase } from './database/db.js'; // Ensures SQLite DB is initialized & seeded
 
 const app = express();
 
@@ -34,6 +34,27 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT) || 4000;
-app.listen(port, () => {
-  console.log(`Simple POS backend listening on http://localhost:${port}`);
+const server = app.listen(port, '127.0.0.1', () => {
+  console.log(`Simple POS backend listening on http://127.0.0.1:${port}`);
 });
+
+function handleShutdown(signal: string) {
+  console.log(`[Backend] Received ${signal}. Shutting down gracefully...`);
+  server.close(() => {
+    closeDatabase();
+    console.log('[Backend] HTTP server and database shut down complete.');
+    process.exit(0);
+  });
+
+  // Force exit after 3 seconds if connections linger
+  setTimeout(() => {
+    console.warn('[Backend] Forcing shutdown after timeout.');
+    closeDatabase();
+    process.exit(0);
+  }, 3000);
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+
+export { app, server };

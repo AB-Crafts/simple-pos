@@ -459,8 +459,10 @@ export async function voidOrder(orderId: string): Promise<void> {
       WHERE id = ?
     `).run(now, orderId);
 
-    // 2. If it was already paid and stock was decremented, restore stock
+    // 2. If it was already paid and stock was decremented, restore stock and remove transaction
     if (wasPaid) {
+      db.prepare('DELETE FROM money_transactions WHERE reference_id = ?').run(orderId);
+
       const restoreStock = db.prepare(`
         UPDATE products SET stock = stock + ?, updated_at = ? WHERE id = ?
       `);

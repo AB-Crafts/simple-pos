@@ -203,3 +203,16 @@ function seedIfEmpty() {
 
 // Auto-initialize on import
 initializeDatabase();
+
+export function closeDatabase() {
+  try {
+    if (db && db.open) {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.close();
+      console.log('[Database] SQLite database connection closed safely.');
+    }
+  } catch (err) {
+    console.error('[Database] Error closing SQLite database:', err);
+  }
+}
+

@@ -1,0 +1,79 @@
+{
+  "name": "banu-pyala-pos",
+  "version": "0.1.0",
+  "description": "Banu Pyala Cafe - Standalone Point of Sale Desktop Application",
+  "main": "electron/main.cjs",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND,ELECTRON\" -c \"yellow,blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on -t 30000 http-get://127.0.0.1:4000/api/health http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:electron": "cross-env NODE_ENV=development electron .",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "start": "electron .",
+    "rebuild": "electron-builder install-app-deps",
+    "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.banupyala.pos",
+    "productName": "Banu Pyala POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "backend/dist/**/*",
+      "backend/package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "dir"
+      ],
+      "category": "Office",
+      "icon": "frontend/public/icons/icon-512.png"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable",
+        "dir"
+      ],
+      "icon": "frontend/public/icons/icon-512.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "dir"
+      ],
+      "category": "public.app-category.business",
+      "icon": "frontend/public/icons/icon-512.png"
+    }
+  }
+}
