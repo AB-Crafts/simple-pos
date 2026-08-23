@@ -21,6 +21,11 @@ jobs:
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
@@ -30,11 +35,14 @@ jobs:
       - name: Install dependencies with network retries
         run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
+      - name: Rebuild native dependencies (better-sqlite3) for Windows Electron
+        run: npx @electron/rebuild -f -w better-sqlite3
+
       - name: Build frontend and backend
         run: npm run build
 
       - name: Package Windows application (NSIS & Portable)
-        run: npx electron-builder --win --x64
+        run: npx electron-builder --win --x64 -c.npmRebuild=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

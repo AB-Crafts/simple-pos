@@ -30,6 +30,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
     "electron": "^32.2.0",
