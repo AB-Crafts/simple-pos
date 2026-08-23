@@ -72,6 +72,13 @@
       ],
       "icon": "frontend/public/icons/icon-512.png"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Banu Pyala POS"
+    },
     "mac": {
       "target": [
         "dmg",
