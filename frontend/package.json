@@ -23,6 +23,8 @@
     "vite-plugin-pwa": "^0.21.1"
   },
   "optionalDependencies": {
+    "@esbuild/win32-x64": "^0.21.5",
+    "@esbuild/linux-x64": "^0.21.5",
     "@rollup/rollup-win32-x64-msvc": "^4.62.4",
     "@rollup/rollup-linux-x64-gnu": "^4.62.4"
   }
