@@ -36,6 +36,9 @@
     "electron-builder": "^25.1.8",
     "wait-on": "^8.0.1"
   },
+  "overrides": {
+    "node-gyp": "^11.1.0"
+  },
   "build": {
     "appId": "com.banupyala.pos",
     "productName": "Banu Pyala POS",

@@ -14,13 +14,12 @@ jobs:
     name: Build Windows Installer & Portable Executable
     runs-on: windows-latest
 
-    env:
-      GYP_MSVS_VERSION: '2022'
-      npm_config_msvs_version: '2022'
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
