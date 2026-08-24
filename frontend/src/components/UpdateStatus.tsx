@@ -22,7 +22,7 @@ export function UpdateStatus() {
   const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
   const [isManualChecking, setIsManualChecking] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [currentAppVersion, setCurrentAppVersion] = useState<string>('0.1.0');
+  const [currentAppVersion, setCurrentAppVersion] = useState<string>('0.1.1');
 
   // Fetch current version if available in electron
   useEffect(() => {
