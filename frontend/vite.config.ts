@@ -41,7 +41,7 @@ export default defineConfig({
       },
       workbox: {
         // Precache the app shell. Data lives in IndexedDB, not the cache,
-        // so the app opens and works fully offline after the first visit.
+        // so the app opens and works fully offline after the first viisit.
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         navigateFallback: '/index.html',
       },
