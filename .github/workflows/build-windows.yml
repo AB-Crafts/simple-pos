@@ -62,7 +62,7 @@ jobs:
         run: npm run build
 
       - name: Package Windows application
-        run: npx electron-builder --win --x64 -c.npmRebuild=false
+        run: npx electron-builder --win --x64 --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

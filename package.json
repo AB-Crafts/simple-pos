@@ -44,6 +44,7 @@
   "build": {
     "appId": "com.banupyala.pos",
     "productName": "Banu Pyala POS",
+    "npmRebuild": false,
     "directories": {
       "output": "release"
     },
