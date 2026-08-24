@@ -1,6 +1,6 @@
 {
   "name": "banu-pyala-pos",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Banu Pyala Cafe - Standalone Point of Sale Desktop Application",
   "author": "Banu Pyala Cafe",
   "main": "electron/main.cjs",
@@ -20,7 +20,10 @@
     "start": "cross-env NODE_ENV=production electron .",
     "rebuild": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder",
-    "dist:dir": "npm run build && electron-builder --dir"
+    "dist:dir": "npm run build && electron-builder --dir",
+    "release": "node scripts/release.cjs patch",
+    "release:minor": "node scripts/release.cjs minor",
+    "release:major": "node scripts/release.cjs major"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
