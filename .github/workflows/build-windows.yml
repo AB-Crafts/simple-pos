@@ -30,18 +30,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: npm
+
+      - name: Verify toolchain
+        shell: pwsh
+        run: |
+          node --version
+          npm --version
+          python --version
+          msbuild -version
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
       - name: Rebuild better-sqlite3 for Electron
-        run: npx @electron/rebuild -f -w better-sqlite3
+        run: npx @electron/rebuild -f -w better-sqlite3 --verbose
+
+      - name: Verify Electron and native SQLite versions
+        run: |
+          npm list electron better-sqlite3 @electron/rebuild
 
       - name: Build frontend and backend
         run: npm run build
 
-      - name: Package Windows application (NSIS & Portable)
+      - name: Package Windows application
         run: npx electron-builder --win --x64 -c.npmRebuild=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,12 +62,18 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Generated build files in release directory:"
-          Get-ChildItem -Path release -Filter *.exe | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+          if (-not (Test-Path release)) {
+            Write-Error "release directory was not created."
+            exit 1
+          }
+
+          Get-ChildItem -Path release -Filter *.exe |
+            Select-Object Name, Length, LastWriteTime |
+            Format-Table -AutoSize
 
       - name: Upload Windows Executables
         uses: actions/upload-artifact@v4
         with:
           name: Banu-Pyala-POS-Windows
-          path: |
-            release/*.exe
+          path: release/*.exe
           if-no-files-found: error
