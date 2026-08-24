@@ -339,8 +339,20 @@ textarea:focus {
   letter-spacing: -0.02em;
   color: #ffffff;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.app-header__version {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  vertical-align: sub;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-family: var(--font-mono, monospace);
+  user-select: none;
+  opacity: 0.85;
 }
 
 .app-header__right {

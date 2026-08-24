@@ -16,6 +16,15 @@ export default function App() {
   const [clock, setClock] = useState(new Date());
   const [editingOrder, setEditingOrder] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [appVersion, setAppVersion] = useState('0.1.0');
+
+  useEffect(() => {
+    if (window.electronAPI?.getAppVersion) {
+      window.electronAPI.getAppVersion().then((v) => {
+        if (v) setAppVersion(v.replace(/^v/, ''));
+      }).catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 1000 * 30);
@@ -45,7 +54,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="app-header__title">Banu Pyala Cafe</span>
+        <span className="app-header__title">
+          Banu Pyala Cafe
+          <sub className="app-header__version">v{appVersion}</sub>
+        </span>
         <div className="app-header__right">
           <span className="app-header__clock">
             {clock.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })} ·{' '}

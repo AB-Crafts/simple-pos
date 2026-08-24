@@ -137,21 +137,7 @@ export function initializeDatabase() {
 }
 
 function seedIfEmpty() {
-  const waiterCount = (db.prepare('SELECT COUNT(*) as count FROM waiters').get() as { count: number }).count;
   const now = Date.now();
-
-  if (waiterCount === 0) {
-    const insertWaiter = db.prepare('INSERT INTO waiters (id, name, active, created_at) VALUES (?, ?, 1, ?)');
-    const seedWaiters = db.transaction(() => {
-      insertWaiter.run(randomUUID(), 'Buraid', now);
-      insertWaiter.run(randomUUID(), 'Ali', now);
-      insertWaiter.run(randomUUID(), 'Hamza', now);
-      insertWaiter.run(randomUUID(), 'Usman', now);
-    });
-    seedWaiters();
-    console.log('[Database] Seeded initial waiters');
-  }
-
   const productCount = (db.prepare('SELECT COUNT(*) as count FROM products').get() as { count: number }).count;
   if (productCount === 0) {
     const chaiCatId = randomUUID();

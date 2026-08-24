@@ -94,8 +94,12 @@ export function POSPage({
     try {
       const list = await apiClient.get<Waiter[]>('/waiters?active=true');
       setWaiters(list);
-      if (list.length > 0 && selectedWaiter === 'Waiter') {
-        setSelectedWaiter(list[0].name);
+      if (list.length > 0) {
+        if (!selectedWaiter || selectedWaiter === 'Waiter' || !list.some((w) => w.name === selectedWaiter)) {
+          setSelectedWaiter(list[0].name);
+        }
+      } else {
+        setSelectedWaiter('');
       }
     } catch (err) {
       console.error('Failed to load waiters:', err);
@@ -131,10 +135,11 @@ export function POSPage({
     if (cart.lines.length === 0) return;
     setSaving(true);
     try {
+      const waiterName = orderType === 'DINE_IN' ? (selectedWaiter.trim() || 'Waiter') : 'Cashier';
       const preview = await prepareOrderPreview(
         cart.lines,
         orderType,
-        orderType === 'DINE_IN' ? selectedWaiter : 'Cashier',
+        waiterName,
         editingOrder?.sale
       );
       setSlipModalResult(preview);
@@ -153,12 +158,13 @@ export function POSPage({
     }
     setSaving(true);
     try {
+      const waiterName = orderType === 'DINE_IN' ? (selectedWaiter.trim() || 'Waiter') : 'Cashier';
       if (editingOrder) {
         // Update existing pending order in database
         const result = await updatePendingOrder(
           editingOrder.sale.id,
           cart.lines,
-          orderType === 'DINE_IN' ? selectedWaiter : 'Cashier'
+          waiterName
         );
         setToast(`Order #${result.sale.orderNumber} updated!`);
         cart.clear();
@@ -168,7 +174,7 @@ export function POSPage({
         const result = await createOrder({
           cart: cart.lines,
           orderType,
-          takenBy: orderType === 'DINE_IN' ? selectedWaiter : 'Cashier',
+          takenBy: waiterName,
           status: 'PENDING',
         });
         setToast(`Order #${result.sale.orderNumber} placed in Pending!`);
@@ -194,12 +200,13 @@ export function POSPage({
     if (cart.lines.length === 0) return;
     setSaving(true);
     try {
+      const waiterName = orderType === 'DINE_IN' ? (selectedWaiter.trim() || 'Waiter') : 'Cashier';
       if (editingOrder) {
         // Update order first then settle
         await updatePendingOrder(
           editingOrder.sale.id,
           cart.lines,
-          orderType === 'DINE_IN' ? selectedWaiter : 'Cashier'
+          waiterName
         );
         setSettleModalTarget({
           sale: { ...editingOrder.sale, total: cart.total },
@@ -219,7 +226,7 @@ export function POSPage({
         const result = await createOrder({
           cart: cart.lines,
           orderType,
-          takenBy: orderType === 'DINE_IN' ? selectedWaiter : 'Cashier',
+          takenBy: waiterName,
           status: 'PAID',
           paymentMethod: method,
           amountReceived,
@@ -346,6 +353,9 @@ export function POSPage({
                   }
                 }}
               >
+                {waiters.length === 0 && (
+                  <option value="">(No Waiters - Click to Add)</option>
+                )}
                 {waiters.map((w) => (
                   <option key={w.id} value={w.name}>
                     {w.name}
