@@ -164,9 +164,9 @@ export function UpdateStatus() {
     modifier = 'downloading';
     title = 'Downloading update package...';
   } else if (status === 'available') {
-    label = 'UPDATE AVAILABLE';
+    label = 'UPDATE';
     modifier = 'available';
-    title = `New version ${newVersion || ''} is available! Click for details.`;
+    title = `New version ${newVersion || ''} is available! Click to update.`;
   } else {
     label = 'UP TO DATE';
     modifier = 'uptodate';
