@@ -8,12 +8,17 @@ let mainWindow = null;
 let backendProcess = null;
 let isQuitting = false;
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isDev = process.env.NODE_ENV === 'development' || (!app.isPackaged && process.env.NODE_ENV !== 'production');
 const PORT = process.env.PORT || '4000';
 
 function getDatabasePath() {
   if (process.env.POS_DB_PATH) {
     return process.env.POS_DB_PATH;
+  }
+  const os = require('node:os');
+  const legacyDb = path.join(os.homedir(), '.simple-pos', 'pos.db');
+  if (fs.existsSync(legacyDb)) {
+    return legacyDb;
   }
   const userDataPath = app.getPath('userData');
   const dbFileName = isDev ? 'pos-dev.db' : 'pos.db';
@@ -31,13 +36,27 @@ if (!fs.existsSync(dbDir)) {
 function checkBackendHealth(retries = 40, delayMs = 300) {
   return new Promise((resolve) => {
     let attempts = 0;
+    let settled = false;
+    let timeoutId = null;
+
+    function done(result) {
+      if (!settled) {
+        settled = true;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        resolve(result);
+      }
+    }
 
     function ping() {
+      if (settled) return;
       attempts++;
       const req = http.get(`http://127.0.0.1:${PORT}/api/health`, (res) => {
         if (res.statusCode === 200) {
           console.log(`[Electron] Backend is healthy on port ${PORT}`);
-          return resolve(true);
+          return done(true);
         }
         retry();
       });
@@ -53,11 +72,12 @@ function checkBackendHealth(retries = 40, delayMs = 300) {
     }
 
     function retry() {
+      if (settled) return;
       if (attempts >= retries) {
         console.warn(`[Electron] Backend did not respond after ${attempts} attempts`);
-        return resolve(false);
+        return done(false);
       }
-      setTimeout(ping, delayMs);
+      timeoutId = setTimeout(ping, delayMs);
     }
 
     ping();
@@ -73,9 +93,9 @@ function startBackendService() {
         return resolve();
       }
 
-      const serverPath = isDev
-        ? path.join(__dirname, '../backend/dist/server.js')
-        : path.join(app.getAppPath(), 'backend/dist/server.js');
+      const serverPath = app.isPackaged
+        ? path.join(app.getAppPath(), 'backend/dist/server.js')
+        : path.join(__dirname, '../backend/dist/server.js');
 
       console.log(`[Electron] Starting backend service from: ${serverPath}`);
       console.log(`[Electron] Persistent Database Path: ${dbPath}`);
@@ -85,7 +105,6 @@ function startBackendService() {
         PORT: String(PORT),
         POS_DB_PATH: dbPath,
         NODE_ENV: isDev ? 'development' : 'production',
-        ELECTRON_RUN_AS_NODE: '1',
       };
 
       try {
@@ -96,7 +115,10 @@ function startBackendService() {
           });
         } else {
           backendProcess = fork(serverPath, [], {
-            env,
+            env: {
+              ...env,
+              ELECTRON_RUN_AS_NODE: '1',
+            },
             execPath: process.execPath,
             execArgv: [],
             stdio: 'inherit',
@@ -160,7 +182,9 @@ function createMainWindow() {
   if (isDev) {
     mainWindow.loadURL('http://127.0.0.1:5173');
   } else {
-    const indexPath = path.join(app.getAppPath(), 'frontend/dist/index.html');
+    const indexPath = app.isPackaged
+      ? path.join(app.getAppPath(), 'frontend/dist/index.html')
+      : path.join(__dirname, '../frontend/dist/index.html');
     mainWindow.loadFile(indexPath);
   }
 

@@ -45,9 +45,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
         navigateFallback: '/index.html',
       },
-    }),
+    }) as any,
   ],
   server: {
+    host: '127.0.0.1',
     port: 5173,
   },
 });

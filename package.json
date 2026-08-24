@@ -17,7 +17,7 @@
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
-    "start": "electron .",
+    "start": "cross-env NODE_ENV=production electron .",
     "rebuild": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder",
     "dist:dir": "npm run build && electron-builder --dir"
@@ -34,8 +34,8 @@
     "@electron/rebuild": "^3.7.1",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
-    "electron": "^32.2.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.7",
     "wait-on": "^8.0.1"
   },
   "overrides": {
