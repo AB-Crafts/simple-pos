@@ -41,14 +41,13 @@ jobs:
           msbuild -version
 
       - name: Install dependencies
-        run: npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+        run: npm ci --ignore-scripts --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
-      - name: Rebuild better-sqlite3 for Electron
-        run: npx @electron/rebuild -f -w better-sqlite3 --verbose
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild -f -w better-sqlite3 --verbose
 
       - name: Verify Electron and native SQLite versions
-        run: |
-          npm list electron better-sqlite3 @electron/rebuild
+        run: npm list electron better-sqlite3 @electron/rebuild
 
       - name: Build frontend and backend
         run: npm run build
