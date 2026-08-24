@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigation, type Page } from './components/Navigation';
-import { ConnectionStatus } from './components/ConnectionStatus';
+import { UpdateStatus } from './components/UpdateStatus';
 import { POSPage } from './pages/POSPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { ProductsPage } from './pages/ProductsPage';
@@ -51,7 +51,7 @@ export default function App() {
             {clock.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })} ·{' '}
             {clock.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          <ConnectionStatus />
+          <UpdateStatus />
         </div>
       </header>
 

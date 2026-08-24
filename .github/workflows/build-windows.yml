@@ -2,10 +2,12 @@ name: Build Windows App
 
 on:
   workflow_dispatch:
+
   push:
     branches:
       - master
       - main
+
     tags:
       - 'v*'
 
@@ -13,9 +15,13 @@ jobs:
   build-windows:
     name: Build Windows Installer & Portable Executable
     runs-on: windows-2022
+
     env:
       GYP_MSVS_VERSION: '2022'
       npm_config_msvs_version: '2022'
+
+    permissions:
+      contents: write
 
     steps:
       - name: Check out repository
@@ -62,7 +68,12 @@ jobs:
         run: npm run build
 
       - name: Package Windows application
-        run: npx electron-builder --win --x64 --publish never
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            npx electron-builder --win --x64 --publish always
+          } else {
+            npx electron-builder --win --x64 --publish never
+          }
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,16 +81,18 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Generated build files in release directory:"
+
           if (-not (Test-Path release)) {
             Write-Error "release directory was not created."
             exit 1
           }
 
-          Get-ChildItem -Path release -Filter *.exe |
+          Get-ChildItem -Path release |
             Select-Object Name, Length, LastWriteTime |
             Format-Table -AutoSize
 
-      - name: Upload Windows Executables
+      - name: Upload Windows build artifact
+        if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
           name: Banu-Pyala-POS-Windows

@@ -10,7 +10,7 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently -k -n \"BACKEND,FRONTEND,ELECTRON\" -c \"yellow,blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on -t 30000 http-get://127.0.0.1:4000/api/health http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND,ELECTRON\" -c \"yellow,blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on -t 30000 http-get://127.0.0.1:4000/api/health http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:electron": "cross-env NODE_ENV=development electron .",
@@ -27,6 +27,7 @@
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "electron-updater": "^6.8.9",
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2"
   },
@@ -57,6 +58,12 @@
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "AB-Crafts",
+      "repo": "simple-pos",
+      "releaseType": "release"
+    },
     "linux": {
       "target": [
         "AppImage",
