@@ -626,7 +626,8 @@ if (!gotTheLock) {
       'quit-and-install',
       () => {
         try {
-          autoUpdater.quitAndInstall();
+          // isSilent = true, isForceRunAfter = true
+          autoUpdater.quitAndInstall(true, true);
         } catch (err) {
           console.error('[Updater] quitAndInstall failed:', err);
         }
