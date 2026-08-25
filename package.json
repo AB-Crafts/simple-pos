@@ -1,6 +1,6 @@
 {
   "name": "banu-pyala-pos",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Banu Pyala Cafe - Standalone Point of Sale Desktop Application",
   "author": "Banu Pyala Cafe",
   "main": "electron/main.cjs",

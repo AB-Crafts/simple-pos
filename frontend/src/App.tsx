@@ -16,7 +16,7 @@ export default function App() {
   const [clock, setClock] = useState(new Date());
   const [editingOrder, setEditingOrder] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
-  const [appVersion, setAppVersion] = useState('0.1.4');
+  const [appVersion, setAppVersion] = useState('0.1.5');
 
   useEffect(() => {
     if (window.electronAPI?.getAppVersion) {
