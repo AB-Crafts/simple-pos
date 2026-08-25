@@ -32,7 +32,7 @@
     "dotenv": "^16.4.5",
     "electron-updater": "^6.8.9",
     "express": "^4.21.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.*"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
@@ -82,9 +82,8 @@
       "icon": "frontend/public/icons/icon-512.png"
     },
     "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "allowElevation": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Banu Pyala POS"
