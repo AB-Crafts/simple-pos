@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ProductGrid } from '../components/ProductGrid';
 import { CartPanel } from '../components/CartPanel';
-import { PaymentPanel } from '../components/PaymentPanel';
 import { SlipModal } from '../components/SlipModal';
-import { SettleModal } from '../components/SettleModal';
 import { CustomAmountModal } from '../components/CustomAmountModal';
 import { useCart } from '../hooks/useCart';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
@@ -14,8 +12,7 @@ import {
   type OrderOperationResult,
 } from '../services/salesService';
 import { apiClient } from '../services/apiClient';
-import { generateId } from '../utils/id';
-import type { CartLine, OrderType, Paisa, PaymentMethod, Product, Sale, SaleItem, Waiter } from '../types';
+import type { CartLine, OrderType, Paisa, Product, Sale, SaleItem, Waiter } from '../types';
 import { formatMoney } from '../utils/money';
 
 interface Props {
@@ -39,7 +36,6 @@ export function POSPage({
 
   const [saving, setSaving] = useState(false);
   const [slipModalResult, setSlipModalResult] = useState<OrderOperationResult | null>(null);
-  const [settleModalTarget, setSettleModalTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [customModalTarget, setCustomModalTarget] = useState<{
     product: Product;
     line?: CartLine;
@@ -131,7 +127,8 @@ export function POSPage({
   }
 
   // 1. Send Order to Kitchen (Preview first — only committed to DB when "Done" is clicked)
-  async function handleSendToKitchen() {
+  // 1. Proceed Order (Preview department slips — only committed to DB as Pending when "Done" is clicked)
+  async function handleProceed() {
     if (cart.lines.length === 0) return;
     setSaving(true);
     try {
@@ -193,55 +190,6 @@ export function POSPage({
   function handleCancelDiscard() {
     setSlipModalResult(null);
     setToast('Order cancelled / discarded.');
-  }
-
-  // 2. Complete / Pay immediately (for Takeaways or direct Dine-In payment)
-  async function handleDirectPayment(method: PaymentMethod, amountReceived: number | null) {
-    if (cart.lines.length === 0) return;
-    setSaving(true);
-    try {
-      const waiterName = orderType === 'DINE_IN' ? (selectedWaiter.trim() || 'Waiter') : 'Cashier';
-      if (editingOrder) {
-        // Update order first then settle
-        await updatePendingOrder(
-          editingOrder.sale.id,
-          cart.lines,
-          waiterName
-        );
-        setSettleModalTarget({
-          sale: { ...editingOrder.sale, total: cart.total },
-          items: cart.lines.map((l) => ({
-            id: generateId(),
-            saleId: editingOrder.sale.id,
-            productId: l.productId,
-            productName: l.name,
-            department: l.department,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            costPrice: 0,
-            total: l.unitPrice * l.quantity,
-          })),
-        });
-      } else {
-        const result = await createOrder({
-          cart: cart.lines,
-          orderType,
-          takenBy: waiterName,
-          status: 'PAID',
-          paymentMethod: method,
-          amountReceived,
-        });
-
-        setToast(`Sale complete — Order #${result.sale.orderNumber} (${formatMoney(cart.total)})`);
-        cart.clear();
-        setSlipModalResult(result);
-      }
-      loadPendingCount();
-    } catch (err: any) {
-      alert(err.message || 'Failed to complete sale');
-    } finally {
-      setSaving(false);
-    }
   }
 
   function handleCancelEdit() {
@@ -374,7 +322,7 @@ export function POSPage({
               <span className="quicklink-badge">
                 🟡 {pendingCount} Pending {pendingCount === 1 ? 'Order' : 'Orders'}
               </span>
-              <span className="quicklink-desc">View running bills & kitchen slips</span>
+              <span className="quicklink-desc">View running bills & kitchen tokens</span>
             </div>
             <span className="quicklink-arrow">Orders & Bills →</span>
           </div>
@@ -418,21 +366,14 @@ export function POSPage({
         />
 
         <div className="pos-action-panel">
-          <div className="order-actions-stack">
-            <button
-              type="button"
-              className="send-kitchen-btn"
-              disabled={cart.lines.length === 0 || saving}
-              onClick={handleSendToKitchen}
-            >
-              {editingOrder ? '📋 Print Supplementary Slip & Update' : '📋 Send to Kitchen (Slip)'}
-            </button>
-            <PaymentPanel
-              total={cart.total}
-              disabled={cart.lines.length === 0 || saving}
-              onComplete={handleDirectPayment}
-            />
-          </div>
+          <button
+            type="button"
+            className="proceed-order-btn"
+            disabled={cart.lines.length === 0 || saving}
+            onClick={handleProceed}
+          >
+            {saving ? 'Processing...' : 'Proceed'}
+          </button>
         </div>
       </div>
 
@@ -452,11 +393,10 @@ export function POSPage({
             <span className="mobile-cart-float-total">{formatMoney(cart.total)}</span>
           </div>
           <button type="button" className="mobile-cart-float-btn">
-            View Bill & Settle →
+            Proceed →
           </button>
         </div>
       )}
-
 
       {/* Slip Modal Preview & Confirmation */}
       {slipModalResult && (
@@ -470,22 +410,6 @@ export function POSPage({
           onConfirmDone={handleConfirmDone}
           onCancelDiscard={handleCancelDiscard}
           confirming={saving}
-        />
-      )}
-
-      {/* Settle Bill Modal for cleared orders */}
-      {settleModalTarget && (
-        <SettleModal
-          sale={settleModalTarget.sale}
-          items={settleModalTarget.items}
-          onSuccess={() => {
-            setSettleModalTarget(null);
-            cart.clear();
-            if (onClearEditingOrder) onClearEditingOrder();
-            setToast('Bill cleared successfully');
-            loadPendingCount();
-          }}
-          onClose={() => setSettleModalTarget(null)}
         />
       )}
 

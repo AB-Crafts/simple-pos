@@ -3,7 +3,7 @@ export type PaymentMethod = 'CASH' | 'CARD' | 'CREDIT';
 export type UserRole = 'OWNER' | 'MANAGER' | 'CASHIER';
 export type Department = 'CHAI' | 'PARHATA' | 'GENERAL';
 export type OrderType = 'DINE_IN' | 'TAKE_AWAY';
-export type OrderStatus = 'PENDING' | 'PAID' | 'VOIDED';
+export type OrderStatus = 'PENDING' | 'PAID' | 'CREDIT' | 'VOIDED';
 
 export interface Waiter {
   id: string;
@@ -59,6 +59,8 @@ export interface Sale {
   paymentMethod: PaymentMethod;
   amountReceived: Paisa | null;
   changeGiven: Paisa | null;
+  customerName?: string | null;
+  customerContact?: string | null;
   voided: boolean;
   printedDepartmentItems?: Record<string, number>;
   createdAt: number;

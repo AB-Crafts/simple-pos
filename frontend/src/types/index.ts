@@ -13,7 +13,7 @@ export type Department = 'CHAI' | 'PARHATA' | 'GENERAL';
 
 export type OrderType = 'DINE_IN' | 'TAKE_AWAY';
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'VOIDED';
+export type OrderStatus = 'PENDING' | 'PAID' | 'CREDIT' | 'VOIDED';
 
 export interface Waiter {
   id: string;
@@ -56,6 +56,8 @@ export interface Sale {
   paymentMethod: PaymentMethod;
   amountReceived: Paisa | null; // cash only
   changeGiven: Paisa | null; // cash only
+  customerName?: string | null;
+  customerContact?: string | null;
   voided: boolean;
   /** Tracks total quantities of each item already printed on departmental slips */
   printedDepartmentItems?: Record<string, number>;

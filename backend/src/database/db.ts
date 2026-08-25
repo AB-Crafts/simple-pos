@@ -75,7 +75,7 @@ export function initializeDatabase() {
       display_id                TEXT NOT NULL,
       order_number              INTEGER NOT NULL DEFAULT 1,
       order_type                TEXT NOT NULL DEFAULT 'DINE_IN' CHECK (order_type IN ('DINE_IN', 'TAKE_AWAY')),
-      status                    TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'VOIDED')),
+      status                    TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'CREDIT', 'VOIDED')),
       taken_by                  TEXT NOT NULL DEFAULT 'Cashier',
       subtotal                  INTEGER NOT NULL,
       discount                  INTEGER NOT NULL DEFAULT 0,
@@ -83,6 +83,8 @@ export function initializeDatabase() {
       payment_method            TEXT NOT NULL CHECK (payment_method IN ('CASH', 'CARD', 'CREDIT')),
       amount_received           INTEGER,
       change_given              INTEGER,
+      customer_name             TEXT,
+      customer_contact          TEXT,
       voided                    INTEGER NOT NULL DEFAULT 0,
       printed_department_items  TEXT,
       created_at                INTEGER NOT NULL,
@@ -132,6 +134,67 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_money_transactions_created_at ON money_transactions (created_at);
     CREATE INDEX IF NOT EXISTS idx_products_active ON products (active);
   `);
+
+  // Ensure columns exist on existing databases
+  try {
+    db.exec(`
+      ALTER TABLE sales ADD COLUMN customer_name TEXT;
+    `);
+  } catch {}
+  try {
+    db.exec(`
+      ALTER TABLE sales ADD COLUMN customer_contact TEXT;
+    `);
+  } catch {}
+
+  // Ensure status check constraint allows 'CREDIT'
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='sales'").get() as { sql: string } | undefined;
+    if (tableInfo && tableInfo.sql && tableInfo.sql.includes("status IN ('PENDING', 'PAID', 'VOIDED')")) {
+      db.exec(`
+        PRAGMA foreign_keys=OFF;
+        CREATE TABLE sales_migration_temp (
+          id                        TEXT PRIMARY KEY,
+          display_id                TEXT NOT NULL,
+          order_number              INTEGER NOT NULL DEFAULT 1,
+          order_type                TEXT NOT NULL DEFAULT 'DINE_IN' CHECK (order_type IN ('DINE_IN', 'TAKE_AWAY')),
+          status                    TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'PAID', 'CREDIT', 'VOIDED')),
+          taken_by                  TEXT NOT NULL DEFAULT 'Cashier',
+          subtotal                  INTEGER NOT NULL,
+          discount                  INTEGER NOT NULL DEFAULT 0,
+          total                     INTEGER NOT NULL,
+          payment_method            TEXT NOT NULL CHECK (payment_method IN ('CASH', 'CARD', 'CREDIT')),
+          amount_received           INTEGER,
+          change_given              INTEGER,
+          customer_name             TEXT,
+          customer_contact          TEXT,
+          voided                    INTEGER NOT NULL DEFAULT 0,
+          printed_department_items  TEXT,
+          created_at                INTEGER NOT NULL,
+          updated_at                INTEGER
+        );
+        INSERT INTO sales_migration_temp (
+          id, display_id, order_number, order_type, status, taken_by,
+          subtotal, discount, total, payment_method, amount_received,
+          change_given, customer_name, customer_contact, voided,
+          printed_department_items, created_at, updated_at
+        )
+        SELECT
+          id, display_id, order_number, order_type, status, taken_by,
+          subtotal, discount, total, payment_method, amount_received,
+          change_given, customer_name, customer_contact, voided,
+          printed_department_items, created_at, updated_at
+        FROM sales;
+        DROP TABLE sales;
+        ALTER TABLE sales_migration_temp RENAME TO sales;
+        CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales (created_at);
+        CREATE INDEX IF NOT EXISTS idx_sales_status ON sales (status);
+        PRAGMA foreign_keys=ON;
+      `);
+    }
+  } catch (err) {
+    console.error('[Database] Sales table status migration error:', err);
+  }
 
   seedIfEmpty();
 }

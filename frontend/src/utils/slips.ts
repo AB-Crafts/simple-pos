@@ -120,7 +120,15 @@ export function formatCustomerBill(
 
   rows.push(pad(`Order #: ${sale.orderNumber}`, sale.orderType === 'DINE_IN' ? 'DINE IN' : 'TAKE AWAY', width));
   rows.push(`Bill ID: ${sale.displayId}`);
-  rows.push(`Server:  ${sale.takenBy}`);
+  if (sale.paymentMethod !== 'CREDIT' && sale.status !== 'CREDIT') {
+    rows.push(`Server:  ${sale.takenBy}`);
+  }
+  if (sale.customerName) {
+    rows.push(`Customer:${sale.customerName}`);
+  }
+  if (sale.customerContact) {
+    rows.push(`Contact: ${sale.customerContact}`);
+  }
   rows.push(`Date:    ${new Date(sale.createdAt).toLocaleString('en-PK', { dateStyle: 'short', timeStyle: 'short' })}`);
   rows.push(`Status:  PAID`);
   rows.push(line('-', width));

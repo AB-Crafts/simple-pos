@@ -119,24 +119,24 @@ export function SlipModal({
         <div className="modal-header">
           <div>
             <h3 className="modal-title">
-              {isSupplementary ? '⚡ Add-On Department Slips' : '📋 Department Kitchen Slips'}
+              {isSupplementary ? '⚡ Add-On Department Kitchen Tokens' : '📋 Department Kitchen Tokens'}
             </h3>
             <span className="modal-subtitle">
               Order #{sale.orderNumber} · {sale.orderType === 'DINE_IN' ? `Waiter: ${sale.takenBy}` : `Takeaway (${sale.takenBy})`}
             </span>
           </div>
-          <button className="btn-icon" onClick={handleCancel} aria-label="Cancel and Discard">
+          <button className="btn-icon" onClick={handleCancel} aria-label="Close">
             ✕
           </button>
         </div>
 
         {isSupplementary ? (
           <div className="slip-alert-banner">
-            <strong>Add-On Slips:</strong> Only newly added items are included for each department. Click "Done" to save changes.
+            <strong>Add-On Kitchen Tokens:</strong> Only newly added items are included for each department. Click "Done" to save changes.
           </div>
         ) : (
           <div className="slip-alert-banner" style={{ background: '#fef7e0', color: '#b06000', borderColor: '#fce8b2' }}>
-            ℹ️ <strong>Pending Confirmation:</strong> Click <strong>"Done"</strong> below to send & list this order in Orders & Bills. Click <strong>"Cancel"</strong> to discard.
+            ℹ️ <strong>Pending Confirmation:</strong> Click <strong>"Done"</strong> below to send & list this order in Orders & Bills.
           </div>
         )}
 
@@ -146,19 +146,19 @@ export function SlipModal({
               className={`slip-tab ${viewMode === 'both' ? 'slip-tab--active' : ''}`}
               onClick={() => setViewMode('both')}
             >
-              📄 Both Slips
+              📄 Both Tokens
             </button>
             <button
               className={`slip-tab ${viewMode === 'chai' ? 'slip-tab--active' : ''}`}
               onClick={() => setViewMode('chai')}
             >
-              ☕ Chai Slip ({resolvedChaiItems.reduce((acc, i) => acc + i.quantity, 0)})
+              ☕ Chai Token ({resolvedChaiItems.reduce((acc, i) => acc + i.quantity, 0)})
             </button>
             <button
               className={`slip-tab ${viewMode === 'parhata' ? 'slip-tab--active' : ''}`}
               onClick={() => setViewMode('parhata')}
             >
-              🫓 Parhata Slip ({resolvedParhataItems.reduce((acc, i) => acc + i.quantity, 0)})
+              🫓 Parhata Token ({resolvedParhataItems.reduce((acc, i) => acc + i.quantity, 0)})
             </button>
           </div>
         )}
@@ -167,7 +167,7 @@ export function SlipModal({
           {(viewMode === 'both' || viewMode === 'chai') && hasChai && (
             <div className="slip-preview-column">
               <div className="slip-dept-title slip-dept-title--chai">
-                ☕ SLIP 1: CHAI DEPARTMENT
+                ☕ TOKEN 1: CHAI DEPARTMENT
               </div>
               <pre className="receipt-paper">{chaiSlipText}</pre>
             </div>
@@ -176,7 +176,7 @@ export function SlipModal({
           {(viewMode === 'both' || viewMode === 'parhata') && hasParhata && (
             <div className="slip-preview-column">
               <div className="slip-dept-title slip-dept-title--parhata">
-                🫓 SLIP 2: PARHATA DEPARTMENT
+                🫓 TOKEN 2: PARHATA DEPARTMENT
               </div>
               <pre className="receipt-paper">{parhataSlipText}</pre>
             </div>
@@ -189,37 +189,29 @@ export function SlipModal({
             {hasChai && hasParhata ? (
               <>
                 <button className="btn btn-primary btn-large" onClick={handlePrintBothAtOnce}>
-                  🖨️ Print 2 Slips at Once
+                  🖨️ Print 2 Tokens at Once
                 </button>
                 <button className="btn btn-secondary" onClick={handlePrintChai}>
-                  Print Chai
+                  Print Chai Token
                 </button>
                 <button className="btn btn-secondary" onClick={handlePrintParhata}>
-                  Print Parhata
+                  Print Parhata Token
                 </button>
               </>
             ) : hasChai ? (
               <button className="btn btn-primary btn-large" onClick={handlePrintChai}>
-                🖨️ Print Chai Slip
+                🖨️ Print Chai Token
               </button>
             ) : hasParhata ? (
               <button className="btn btn-primary btn-large" onClick={handlePrintParhata}>
-                🖨️ Print Parhata Slip
+                🖨️ Print Parhata Token
               </button>
             ) : (
-              <p style={{ margin: 0, color: 'var(--ink-soft)' }}>No departmental items to print.</p>
+              <p style={{ margin: 0, color: 'var(--ink-soft)' }}>No departmental items for kitchen token.</p>
             )}
           </div>
 
           <div className="slip-modal-actions__right">
-            <button
-              className="btn btn-danger-outline"
-              onClick={handleCancel}
-              disabled={confirming}
-              title="Discard this order without saving"
-            >
-              Cancel & Discard
-            </button>
             <button
               className="btn btn-success btn-large"
               onClick={handleConfirm}

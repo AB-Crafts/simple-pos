@@ -173,7 +173,7 @@ export function ProductsPage() {
         <div>
           <h2 className="products-title">Menu & Products</h2>
           <p className="products-subtitle">
-            Manage hotel menu items, prices, stock quantities, and department routing for kitchen slips.
+            Manage hotel menu items, prices, stock quantities, and department routing for kitchen tokens.
           </p>
         </div>
 
@@ -487,7 +487,7 @@ export function ProductsPage() {
                   {editingProduct ? '✏️ Edit Product' : '✨ Add New Product'}
                 </h3>
                 <span className="modal-subtitle">
-                  Configure menu item, prices, stock, and kitchen slip department.
+                  Configure menu item, prices, stock, and kitchen token department.
                 </span>
               </div>
               <button
@@ -536,7 +536,7 @@ export function ProductsPage() {
                     <div className="dept-radio-card__icon">☕</div>
                     <div className="dept-radio-card__text">
                       <strong>Chai Dept</strong>
-                      <span>Prints on Chai Slip</span>
+                      <span>Prints on Chai Token</span>
                     </div>
                   </label>
 
@@ -555,7 +555,7 @@ export function ProductsPage() {
                     <div className="dept-radio-card__icon">🫓</div>
                     <div className="dept-radio-card__text">
                       <strong>Parhata Dept</strong>
-                      <span>Prints on Parhata Slip</span>
+                      <span>Prints on Parhata Token</span>
                     </div>
                   </label>
 

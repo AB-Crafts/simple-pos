@@ -4,6 +4,7 @@ import { formatMoney } from '../utils/money';
 import { formatCustomerBill, printReceiptText } from '../utils/slips';
 import { voidOrder, getAllSalesWithItems } from '../services/salesService';
 import { SettleModal } from '../components/SettleModal';
+import { RecordPaymentModal } from '../components/RecordPaymentModal';
 
 interface Props {
   onEditOrder: (order: Sale, items: SaleItem[]) => void;
@@ -13,11 +14,12 @@ interface Props {
 export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [itemsMap, setItemsMap] = useState<Record<string, SaleItem[]>>({});
-  const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'PAID' | 'VOIDED'>('PENDING');
+  const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'CREDIT' | 'PAID' | 'VOIDED'>('PENDING');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [settleOrderTarget, setSettleOrderTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
+  const [recordPaymentTarget, setRecordPaymentTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
 
   const filteredSales = sales.filter((s) => {
     if (filter === 'PENDING' && s.status !== 'PENDING') return false;
+    if (filter === 'CREDIT' && s.status !== 'CREDIT') return false;
     if (filter === 'PAID' && s.status !== 'PAID') return false;
     if (filter === 'VOIDED' && !s.voided && s.status !== 'VOIDED') return false;
 
@@ -65,9 +68,12 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
       const matchOrderNum = `#${s.orderNumber}`.includes(q) || s.orderNumber.toString().includes(q);
       const matchDisplay = s.displayId.toLowerCase().includes(q);
       const matchWaiter = s.takenBy.toLowerCase().includes(q);
+      const matchCustomer =
+        (s.customerName && s.customerName.toLowerCase().includes(q)) ||
+        (s.customerContact && s.customerContact.toLowerCase().includes(q));
       const items = itemsMap[s.id] || [];
       const matchItem = items.some((i) => i.productName.toLowerCase().includes(q));
-      return matchOrderNum || matchDisplay || matchWaiter || matchItem;
+      return matchOrderNum || matchDisplay || matchWaiter || Boolean(matchCustomer) || matchItem;
     }
     return true;
   });
@@ -75,6 +81,11 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
   const pendingCount = sales.filter((s) => s.status === 'PENDING').length;
   const pendingAmount = sales
     .filter((s) => s.status === 'PENDING')
+    .reduce((acc, s) => acc + s.total, 0);
+
+  const creditCount = sales.filter((s) => s.status === 'CREDIT').length;
+  const creditAmount = sales
+    .filter((s) => s.status === 'CREDIT')
     .reduce((acc, s) => acc + s.total, 0);
 
   const startOfDay = new Date();
@@ -89,7 +100,7 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
         <div>
           <h2 className="page-title">Active Orders & Bills</h2>
           <p className="page-subtitle">
-            Manage Dine-In and Takeaway orders, track waiter slips, edit pending bills, and clear payments.
+            Manage Dine-In, Takeaway, track waiter tokens, manage Khata credit records, and collect payments.
           </p>
         </div>
 
@@ -104,13 +115,19 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
         <div className="metric-card metric-card--warning">
           <div className="metric-card__title">Pending Orders</div>
           <div className="metric-card__value">{pendingCount}</div>
-          <div className="metric-card__hint">To be settled: {formatMoney(pendingAmount)}</div>
+          <div className="metric-card__hint">Kitchen/Table: {formatMoney(pendingAmount)}</div>
+        </div>
+
+        <div className="metric-card" style={{ borderLeft: '4px solid #ea580c' }}>
+          <div className="metric-card__title" style={{ color: '#c2410c' }}>📝 Khata / Credit Unpaid</div>
+          <div className="metric-card__value" style={{ color: '#9a3412' }}>{creditCount}</div>
+          <div className="metric-card__hint">To collect: {formatMoney(creditAmount)}</div>
         </div>
 
         <div className="metric-card metric-card--success">
           <div className="metric-card__title">Today's Paid Sales</div>
           <div className="metric-card__value">{formatMoney(paidTodayAmount)}</div>
-          <div className="metric-card__hint">Cleared transactions</div>
+          <div className="metric-card__hint">Cleared cash & card</div>
         </div>
 
         <div className="metric-card">
@@ -129,6 +146,12 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
             onClick={() => setFilter('PENDING')}
           >
             🟡 Pending ({pendingCount})
+          </button>
+          <button
+            className={`filter-tab ${filter === 'CREDIT' ? 'filter-tab--active' : ''}`}
+            onClick={() => setFilter('CREDIT')}
+          >
+            📝 Khata / Credit ({creditCount})
           </button>
           <button
             className={`filter-tab ${filter === 'PAID' ? 'filter-tab--active' : ''}`}
@@ -153,7 +176,7 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
         <div className="orders-search">
           <input
             type="search"
-            placeholder="Search by Order #, Waiter (e.g. Buraid), or Item..."
+            placeholder="Search by customer name, phone, order #, waiter, or item..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="form-input search-input"
@@ -169,29 +192,32 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
         </div>
       ) : (
         <>
-          {/* Desktop & Tablet Table View */}
           <div className="table-responsive desktop-only">
             <table className="data-table orders-table">
               <thead>
                 <tr>
                   <th style={{ width: '90px' }}>Order #</th>
-                  <th style={{ width: '110px' }}>Status</th>
+                  <th style={{ width: '130px' }}>Status</th>
                   <th style={{ width: '110px' }}>Type</th>
-                  <th style={{ width: '130px' }}>Taken By</th>
+                  <th style={{ width: '140px' }}>{filter === 'CREDIT' ? 'Customer' : 'Taken By / Customer'}</th>
                   <th>Order Items</th>
                   <th style={{ width: '120px', textAlign: 'right' }}>Total</th>
-                  <th style={{ width: '240px', textAlign: 'center' }}>Actions</th>
+                  <th style={{ width: '250px', textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSales.map((sale) => {
                   const items = itemsMap[sale.id] || [];
                   const isPending = sale.status === 'PENDING';
+                  const isCredit = sale.status === 'CREDIT';
                   const isPaid = sale.status === 'PAID';
                   const isVoided = sale.status === 'VOIDED' || sale.voided;
 
                   return (
-                    <tr key={sale.id} className={isPending ? 'order-row--pending' : ''}>
+                    <tr
+                      key={sale.id}
+                      className={`${isPending ? 'order-row--pending' : ''} ${isCredit ? 'order-row--credit' : ''}`}
+                    >
                       <td className="order-number-cell">
                         <strong>#{sale.orderNumber}</strong>
                         <div className="order-time-sub">
@@ -205,6 +231,8 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                       <td>
                         {isPending ? (
                           <span className="status-badge status-badge--pending">PENDING</span>
+                        ) : isCredit ? (
+                          <span className="status-badge status-badge--credit">📝 UNPAID KHATA</span>
                         ) : isPaid ? (
                           <span className="status-badge status-badge--paid">PAID</span>
                         ) : (
@@ -219,7 +247,22 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                       </td>
 
                       <td className="order-taken-by-cell">
-                        <span className="waiter-name-pill">{sale.takenBy}</span>
+                        {isCredit ? (
+                          <div className="order-customer-sub" style={{ marginTop: 0, fontSize: '13px', color: 'var(--ink)' }} title={sale.customerContact ? `Contact: ${sale.customerContact}` : undefined}>
+                            👤 <strong>{sale.customerName || 'Khata Customer'}</strong>
+                            {sale.customerContact && <span className="order-contact-sub" style={{ fontSize: '12px' }}> ({sale.customerContact})</span>}
+                          </div>
+                        ) : (
+                          <>
+                            <span className="waiter-name-pill">{sale.takenBy}</span>
+                            {sale.customerName && (
+                              <div className="order-customer-sub" title={sale.customerContact ? `Contact: ${sale.customerContact}` : undefined}>
+                                👤 <strong>{sale.customerName}</strong>
+                                {sale.customerContact && <span className="order-contact-sub"> ({sale.customerContact})</span>}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </td>
 
                       <td className="order-items-cell">
@@ -270,6 +313,34 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                             </>
                           )}
 
+                          {isCredit && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => setRecordPaymentTarget({ sale, items })}
+                                title="Record payment received for this Khata order"
+                              >
+                                💵 Receive Payment
+                              </button>
+                              <button
+                                className="btn btn-sm btn-ghost"
+                                onClick={() => handlePrintCustomerBill(sale)}
+                                title="Print customer bill slip"
+                              >
+                                🧾 Print Bill
+                              </button>
+                              {!isVoided && (
+                                <button
+                                  className="btn btn-sm btn-danger-outline"
+                                  onClick={() => handleVoid(sale.id)}
+                                  title="Cancel / Void order"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          )}
+
                           {isPaid && (
                             <button
                               className="btn btn-sm btn-ghost"
@@ -288,16 +359,19 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
             </table>
           </div>
 
-          {/* Mobile Card List View (<= 768px) */}
           <div className="orders-mobile-list mobile-only">
             {filteredSales.map((sale) => {
               const items = itemsMap[sale.id] || [];
               const isPending = sale.status === 'PENDING';
+              const isCredit = sale.status === 'CREDIT';
               const isPaid = sale.status === 'PAID';
               const isVoided = sale.status === 'VOIDED' || sale.voided;
 
               return (
-                <div key={sale.id} className={`order-card-mobile ${isPending ? 'order-card-mobile--pending' : ''}`}>
+                <div
+                  key={sale.id}
+                  className={`order-card-mobile ${isPending ? 'order-card-mobile--pending' : ''} ${isCredit ? 'order-card-mobile--credit' : ''}`}
+                >
                   <div className="order-card-mobile__top">
                     <div className="order-card-mobile__id">
                       <strong>Order #{sale.orderNumber}</strong>
@@ -314,6 +388,8 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                       </span>
                       {isPending ? (
                         <span className="status-badge status-badge--pending">PENDING</span>
+                      ) : isCredit ? (
+                        <span className="status-badge status-badge--credit">📝 UNPAID KHATA</span>
                       ) : isPaid ? (
                         <span className="status-badge status-badge--paid">PAID</span>
                       ) : (
@@ -323,8 +399,21 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                   </div>
 
                   <div className="order-card-mobile__waiter">
-                    <span className="waiter-label">Server:</span>
-                    <span className="waiter-name-pill">{sale.takenBy}</span>
+                    {isCredit ? (
+                      <span className="order-customer-pill" title={sale.customerContact ? `Contact: ${sale.customerContact}` : undefined}>
+                        👤 <strong>{sale.customerName || 'Khata Customer'}</strong> {sale.customerContact && `(${sale.customerContact})`}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="waiter-label">Server:</span>
+                        <span className="waiter-name-pill">{sale.takenBy}</span>
+                        {sale.customerName && (
+                          <span className="order-customer-pill" title={sale.customerContact ? `Contact: ${sale.customerContact}` : undefined}>
+                            👤 {sale.customerName} {sale.customerContact && `(${sale.customerContact})`}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   <div className="order-card-mobile__items">
@@ -335,10 +424,10 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                     ))}
                   </div>
 
-                  <div className="order-card-mobile__footer">
+                  <div className="order-card-mobile__bottom">
                     <div className="order-card-mobile__total">
                       <span className="total-label">Total:</span>
-                      <strong>{formatMoney(sale.total)}</strong>
+                      <span className="total-val">{formatMoney(sale.total)}</span>
                     </div>
 
                     <div className="order-card-mobile__actions">
@@ -366,9 +455,33 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
                           )}
                         </>
                       )}
+                      {isCredit && (
+                        <>
+                          <button
+                            className="btn btn-sm btn-primary"
+                            onClick={() => setRecordPaymentTarget({ sale, items })}
+                          >
+                            💵 Receive Payment
+                          </button>
+                          <button
+                            className="btn btn-sm btn-ghost"
+                            onClick={() => handlePrintCustomerBill(sale)}
+                          >
+                            🧾 Print
+                          </button>
+                          {!isVoided && (
+                            <button
+                              className="btn btn-sm btn-danger-outline"
+                              onClick={() => handleVoid(sale.id)}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </>
+                      )}
                       {isPaid && (
                         <button
-                          className="btn btn-sm btn-outline"
+                          className="btn btn-sm btn-ghost"
                           onClick={() => handlePrintCustomerBill(sale)}
                         >
                           🧾 Print Bill
@@ -383,17 +496,33 @@ export function OrdersPage({ onEditOrder, onNavigateToPOS }: Props) {
         </>
       )}
 
-
       {settleOrderTarget && (
         <SettleModal
           sale={settleOrderTarget.sale}
           items={settleOrderTarget.items}
-          onSuccess={() => {
+          onClose={() => setSettleOrderTarget(null)}
+          onSuccess={(updatedSale) => {
             setSettleOrderTarget(null);
-            setToast(`Order #${settleOrderTarget.sale.orderNumber} marked as PAID`);
+            setToast(
+              updatedSale.status === 'CREDIT'
+                ? `Order #${updatedSale.orderNumber} saved to Khata (${updatedSale.customerName || 'Credit'})!`
+                : `Order #${updatedSale.orderNumber} settled as PAID!`
+            );
             loadOrders();
           }}
-          onClose={() => setSettleOrderTarget(null)}
+        />
+      )}
+
+      {recordPaymentTarget && (
+        <RecordPaymentModal
+          sale={recordPaymentTarget.sale}
+          items={recordPaymentTarget.items}
+          onClose={() => setRecordPaymentTarget(null)}
+          onSuccess={(updatedSale) => {
+            setRecordPaymentTarget(null);
+            setToast(`Payment recorded for Order #${updatedSale.orderNumber} — Marked as PAID!`);
+            loadOrders();
+          }}
         />
       )}
 

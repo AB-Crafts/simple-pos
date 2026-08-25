@@ -16,6 +16,8 @@ interface SaleRow {
   payment_method: PaymentMethod;
   amount_received: number | null;
   change_given: number | null;
+  customer_name: string | null;
+  customer_contact: string | null;
   voided: number;
   printed_department_items: string | null;
   created_at: number;
@@ -49,6 +51,8 @@ function toSale(row: SaleRow): Sale {
     paymentMethod: row.payment_method,
     amountReceived: row.amount_received,
     changeGiven: row.change_given,
+    customerName: row.customer_name ?? undefined,
+    customerContact: row.customer_contact ?? undefined,
     voided: Boolean(row.voided),
     printedDepartmentItems: row.printed_department_items ? JSON.parse(row.printed_department_items) : undefined,
     createdAt: row.created_at,
@@ -385,7 +389,9 @@ export async function updatePendingOrder(
 export async function settlePendingOrder(
   orderId: string,
   paymentMethod: PaymentMethod,
-  amountReceived: number | null
+  amountReceived: number | null,
+  customerName: string | null = null,
+  customerContact: string | null = null
 ): Promise<Sale> {
   const existing = db.prepare('SELECT * FROM sales WHERE id = ?').get(orderId) as SaleRow | undefined;
   if (!existing) throw new ApiError(404, `Order ${orderId} not found`);
@@ -397,20 +403,27 @@ export async function settlePendingOrder(
   const changeGiven =
     paymentMethod === 'CASH' && amountReceived != null ? amountReceived - existing.total : null;
 
+  const targetStatus: OrderStatus = paymentMethod === 'CREDIT' ? 'CREDIT' : 'PAID';
+
   const executeTransaction = db.transaction(() => {
-    // 1. Mark as PAID
+    // 1. Mark as CREDIT (unpaid khata) or PAID
     db.prepare(`
       UPDATE sales SET
-        status = 'PAID',
+        status = ?,
         payment_method = ?,
         amount_received = ?,
         change_given = ?,
+        customer_name = ?,
+        customer_contact = ?,
         updated_at = ?
       WHERE id = ?
     `).run(
+      targetStatus,
       paymentMethod,
       paymentMethod === 'CASH' ? amountReceived : null,
       changeGiven,
+      customerName ? customerName.trim() : null,
+      customerContact ? customerContact.trim() : null,
       now,
       orderId
     );
@@ -426,10 +439,64 @@ export async function settlePendingOrder(
       }
     }
 
-    // 3. Record money transaction
-    const txnType =
-      paymentMethod === 'CASH' ? 'CASH_SALE' : paymentMethod === 'CARD' ? 'CARD_SALE' : 'CREDIT_SALE';
+    // 3. Record money transaction only if cash or card was received
+    if (paymentMethod === 'CASH' || paymentMethod === 'CARD') {
+      const txnType = paymentMethod === 'CASH' ? 'CASH_SALE' : 'CARD_SALE';
+      db.prepare(`
+        INSERT INTO money_transactions (id, type, amount, reference_id, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(randomUUID(), txnType, existing.total, orderId, now);
+    }
+  });
 
+  executeTransaction();
+
+  return (await getSale(orderId)).sale;
+}
+
+/**
+ * Records payment received for an outstanding Credit / Khata order and marks it as PAID.
+ */
+export async function recordKhataPayment(
+  orderId: string,
+  paymentMethod: PaymentMethod,
+  amountReceived: number | null,
+  customerName?: string | null,
+  customerContact?: string | null
+): Promise<Sale> {
+  const existing = db.prepare('SELECT * FROM sales WHERE id = ?').get(orderId) as SaleRow | undefined;
+  if (!existing) throw new ApiError(404, `Order ${orderId} not found`);
+  if (existing.voided || existing.status === 'VOIDED') throw new ApiError(400, 'Cannot record payment on a voided order');
+  if (existing.status === 'PAID') throw new ApiError(400, 'Order is already marked as PAID');
+
+  const now = Date.now();
+  const changeGiven =
+    paymentMethod === 'CASH' && amountReceived != null ? amountReceived - existing.total : null;
+
+  const executeTransaction = db.transaction(() => {
+    // 1. Update sale to PAID with payment method and amount
+    db.prepare(`
+      UPDATE sales SET
+        status = 'PAID',
+        payment_method = ?,
+        amount_received = ?,
+        change_given = ?,
+        customer_name = COALESCE(?, customer_name),
+        customer_contact = COALESCE(?, customer_contact),
+        updated_at = ?
+      WHERE id = ?
+    `).run(
+      paymentMethod,
+      paymentMethod === 'CASH' ? amountReceived : null,
+      changeGiven,
+      customerName ? customerName.trim() : null,
+      customerContact ? customerContact.trim() : null,
+      now,
+      orderId
+    );
+
+    // 2. Record money transaction for the incoming cash or card
+    const txnType = paymentMethod === 'CASH' ? 'CASH_SALE' : 'CARD_SALE';
     db.prepare(`
       INSERT INTO money_transactions (id, type, amount, reference_id, created_at)
       VALUES (?, ?, ?, ?, ?)
@@ -445,7 +512,7 @@ export async function voidOrder(orderId: string): Promise<void> {
   const existing = db.prepare('SELECT * FROM sales WHERE id = ?').get(orderId) as SaleRow | undefined;
   if (!existing) throw new ApiError(404, `Order ${orderId} not found`);
 
-  const wasPaid = existing.status === 'PAID';
+  const wasSettled = existing.status === 'PAID' || existing.status === 'CREDIT';
   const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(orderId) as SaleItemRow[];
   const now = Date.now();
 
@@ -459,8 +526,8 @@ export async function voidOrder(orderId: string): Promise<void> {
       WHERE id = ?
     `).run(now, orderId);
 
-    // 2. If it was already paid and stock was decremented, restore stock and remove transaction
-    if (wasPaid) {
+    // 2. If it was already settled and stock was decremented, restore stock and remove transaction
+    if (wasSettled) {
       db.prepare('DELETE FROM money_transactions WHERE reference_id = ?').run(orderId);
 
       const restoreStock = db.prepare(`

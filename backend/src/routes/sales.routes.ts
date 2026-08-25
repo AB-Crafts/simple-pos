@@ -8,6 +8,7 @@ import {
   createHandler,
   updateHandler,
   settleHandler,
+  recordPaymentHandler,
   voidHandler,
 } from '../controllers/sales.controller.js';
 
@@ -20,4 +21,5 @@ salesRoutes.get('/:id', asyncHandler(getHandler));
 salesRoutes.post('/', asyncHandler(createHandler));
 salesRoutes.put('/:id', asyncHandler(updateHandler));
 salesRoutes.post('/:id/settle', asyncHandler(settleHandler));
+salesRoutes.post('/:id/record-payment', asyncHandler(recordPaymentHandler));
 salesRoutes.post('/:id/void', asyncHandler(voidHandler));

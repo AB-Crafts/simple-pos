@@ -251,11 +251,33 @@ export async function updatePendingOrder(
 export async function settlePendingOrder(
   orderId: string,
   paymentMethod: PaymentMethod,
-  amountReceived: number | null
+  amountReceived: number | null,
+  customerName?: string | null,
+  customerContact?: string | null
 ): Promise<Sale> {
   return apiClient.post<Sale>(`/sales/${orderId}/settle`, {
     paymentMethod,
     amountReceived,
+    customerName,
+    customerContact,
+  });
+}
+
+/**
+ * Records actual payment (Cash / Card) received for a Credit / Khata order and marks it as PAID.
+ */
+export async function recordKhataPayment(
+  orderId: string,
+  paymentMethod: PaymentMethod,
+  amountReceived: number | null,
+  customerName?: string | null,
+  customerContact?: string | null
+): Promise<Sale> {
+  return apiClient.post<Sale>(`/sales/${orderId}/record-payment`, {
+    paymentMethod,
+    amountReceived,
+    customerName,
+    customerContact,
   });
 }
 

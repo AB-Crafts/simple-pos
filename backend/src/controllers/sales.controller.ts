@@ -7,6 +7,7 @@ import {
   createOrder,
   updatePendingOrder,
   settlePendingOrder,
+  recordKhataPayment,
   voidOrder,
 } from '../services/sales.service.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -55,7 +56,28 @@ export async function settleHandler(req: Request, res: Response) {
   if (!body.paymentMethod) {
     throw new ApiError(400, 'paymentMethod is required');
   }
-  const result = await settlePendingOrder(req.params.id, body.paymentMethod, body.amountReceived ?? null);
+  const result = await settlePendingOrder(
+    req.params.id,
+    body.paymentMethod,
+    body.amountReceived ?? null,
+    body.customerName ?? null,
+    body.customerContact ?? null
+  );
+  res.json(result);
+}
+
+export async function recordPaymentHandler(req: Request, res: Response) {
+  const body = req.body ?? {};
+  if (!body.paymentMethod) {
+    throw new ApiError(400, 'paymentMethod is required');
+  }
+  const result = await recordKhataPayment(
+    req.params.id,
+    body.paymentMethod,
+    body.amountReceived ?? null,
+    body.customerName ?? null,
+    body.customerContact ?? null
+  );
   res.json(result);
 }
 
