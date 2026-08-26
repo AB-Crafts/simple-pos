@@ -2411,16 +2411,25 @@ textarea:focus {
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
-  overflow-y: auto;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.products-page__header {
+  flex-shrink: 0;
 }
 
 .products-stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .product-stat-card {
@@ -2464,6 +2473,7 @@ textarea:focus {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
 }
 
 .products-search-wrap,
@@ -2528,13 +2538,36 @@ textarea:focus {
   border-radius: var(--radius);
 }
 
-.products-table-card,
 .expenses-table-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-xs);
+}
+
+.products-table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.products-modern-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-subtle);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.products-empty-cell {
+  text-align: center;
+  padding: 40px 20px !important;
 }
 
 .product-name-cell .product-title-text {
@@ -2831,23 +2864,32 @@ textarea:focus {
   width: 100%;
   max-width: 1300px;
   margin: 0 auto;
-  overflow-y: auto;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.money-page__header {
+  flex-shrink: 0;
 }
 
 .money-stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
+  flex-shrink: 0;
 }
 
 .money-stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -2881,7 +2923,26 @@ textarea:focus {
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 18px;
-  align-items: start;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+}
+
+.money-card-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.money-card-section--withdraw {
+  align-self: start;
+  height: auto;
+}
+
+.money-card-section--ledger {
+  height: 100%;
+  min-height: 0;
 }
 
 .section-card {
@@ -2895,6 +2956,27 @@ textarea:focus {
   gap: 14px;
 }
 
+.money-card-section--withdraw .section-card {
+  height: auto;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.ledger-section-card {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ledger-section-card__header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .section-card__title {
   font-size: 15px;
   font-weight: 800;
@@ -2905,6 +2987,10 @@ textarea:focus {
   font-size: 12px;
   color: var(--ink-soft);
   margin-top: -8px;
+}
+
+.ledger-section-card__header .section-card__desc {
+  margin-top: 0;
 }
 
 .withdraw-form {
@@ -2995,9 +3081,54 @@ textarea:focus {
 
 .ledger-table-wrap {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.ledger-modern-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-subtle);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.ledger-empty-cell {
+  text-align: center;
+  padding: 40px 20px !important;
+}
+
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ink-soft);
+}
+
+.empty-state-wrap .empty-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.empty-state-wrap .empty-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.empty-state-wrap .empty-desc {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0;
+  max-width: 320px;
 }
 
 .ledger-time-main {
@@ -4145,8 +4276,29 @@ textarea:focus {
     display: flex;
   }
 
+  .money-flow-page-modern,
+  .products-page {
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+  }
+
   .money-flow-grid {
     grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .money-card-section--ledger {
+    height: auto;
+  }
+
+  .ledger-section-card {
+    height: auto;
+  }
+
+  .ledger-table-wrap,
+  .products-table-card {
+    max-height: 480px;
   }
 
   .custom-range-two-col {

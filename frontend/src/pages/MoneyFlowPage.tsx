@@ -152,7 +152,7 @@ export function MoneyFlowPage() {
 
       <div className="money-flow-grid">
         {/* Left Column: Withdrawal Form */}
-        <div className="money-card-section">
+        <div className="money-card-section money-card-section--withdraw">
           <div className="section-card">
             <h3 className="section-card__title">🏦 Cash Withdrawal / Deposit</h3>
             <p className="section-card__desc">
@@ -207,12 +207,14 @@ export function MoneyFlowPage() {
         </div>
 
         {/* Right Column: Transaction Ledger */}
-        <div className="money-card-section">
-          <div className="section-card">
-            <h3 className="section-card__title">📜 Live Cash Register Ledger</h3>
-            <p className="section-card__desc">
-              All inflows and outflows logged in real time.
-            </p>
+        <div className="money-card-section money-card-section--ledger">
+          <div className="section-card ledger-section-card">
+            <div className="ledger-section-card__header">
+              <h3 className="section-card__title">📜 Live Cash Register Ledger</h3>
+              <p className="section-card__desc">
+                All inflows and outflows logged in real time.
+              </p>
+            </div>
 
             <div className="ledger-table-wrap">
               <table className="ledger-modern-table">
