@@ -18,6 +18,8 @@ export interface CreateOrderInput {
   status?: OrderStatus;
   paymentMethod?: PaymentMethod;
   amountReceived?: number | null; // paisa, cash only
+  customerName?: string | null;
+  customerContact?: string | null;
 }
 
 export interface DepartmentItemSnapshot {

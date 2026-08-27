@@ -3,6 +3,7 @@ import { ProductGrid } from '../components/ProductGrid';
 import { CartPanel } from '../components/CartPanel';
 import { SlipModal } from '../components/SlipModal';
 import { CustomAmountModal } from '../components/CustomAmountModal';
+import { TakeawaySettleModal } from '../components/TakeawaySettleModal';
 import { useCart } from '../hooks/useCart';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import {
@@ -35,6 +36,7 @@ export function POSPage({
   const [pendingCount, setPendingCount] = useState(0);
 
   const [saving, setSaving] = useState(false);
+  const [showTakeawaySettle, setShowTakeawaySettle] = useState(false);
   const [slipModalResult, setSlipModalResult] = useState<OrderOperationResult | null>(null);
   const [customModalTarget, setCustomModalTarget] = useState<{
     product: Product;
@@ -203,6 +205,23 @@ export function POSPage({
     setCustomModalTarget({ product });
   }
 
+  // Open custom amount modal for generic custom item / amount
+  function handleOpenGenericCustomModal() {
+    const genericProduct: Product = {
+      id: 'custom-open-item-' + Date.now(),
+      name: 'Custom Item',
+      department: 'GENERAL',
+      sellingPrice: 10000,
+      costPrice: 0,
+      stock: 999,
+      active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      categoryId: null,
+    };
+    setCustomModalTarget({ product: genericProduct });
+  }
+
   // Edit price of an existing cart line
   async function handleEditCartLinePrice(line: CartLine) {
     let product: Product | null = null;
@@ -246,12 +265,39 @@ export function POSPage({
     setCustomModalTarget(null);
   }
 
+  function handleMainAction() {
+    if (cart.lines.length === 0) return;
+    if (orderType === 'TAKE_AWAY' && !editingOrder) {
+      setShowTakeawaySettle(true);
+    } else {
+      handleProceed();
+    }
+  }
+
+  function handleTakeawaySettleSuccess(sale: Sale, changePkr: number) {
+    cart.clear();
+    setShowTakeawaySettle(false);
+    if (sale.status === 'CREDIT') {
+      setToast(`Takeaway Order #${sale.orderNumber} recorded in Khata (${sale.customerName || 'Credit'})!`);
+    } else {
+      setToast(
+        `Takeaway Order #${sale.orderNumber} Completed! Paid via ${sale.paymentMethod}${
+          changePkr > 0 ? ` · Change: Rs. ${changePkr}` : ''
+        }`
+      );
+    }
+    loadPendingCount();
+  }
+
+  const isTakeaway = orderType === 'TAKE_AWAY' && !editingOrder;
+
   return (
     <div className="pos-page">
       <div className="pos-left-panel">
         <ProductGrid
           onAddProduct={cart.addProduct}
           onCustomAmount={handleOpenCustomModal}
+          onOpenCustomItem={handleOpenGenericCustomModal}
         />
       </div>
 
@@ -368,11 +414,17 @@ export function POSPage({
         <div className="pos-action-panel">
           <button
             type="button"
-            className="proceed-order-btn"
+            className={`proceed-order-btn ${isTakeaway ? 'proceed-order-btn--takeaway' : ''}`}
             disabled={cart.lines.length === 0 || saving}
-            onClick={handleProceed}
+            onClick={handleMainAction}
           >
-            {saving ? 'Processing...' : 'Proceed'}
+            {saving
+              ? 'Processing...'
+              : editingOrder
+              ? '✏️ Update Order'
+              : isTakeaway
+              ? '💵 Clear Bill & Complete Sale'
+              : 'Proceed (Kitchen Slips)'}
           </button>
         </div>
       </div>
@@ -392,13 +444,23 @@ export function POSPage({
             </span>
             <span className="mobile-cart-float-total">{formatMoney(cart.total)}</span>
           </div>
-          <button type="button" className="mobile-cart-float-btn">
-            Proceed →
+          <button type="button" className="mobile-cart-float-btn" onClick={handleMainAction}>
+            {isTakeaway ? 'Complete Sale →' : 'Proceed →'}
           </button>
         </div>
       )}
 
-      {/* Slip Modal Preview & Confirmation */}
+      {/* Takeaway Settle & Direct Sale Clearance Modal */}
+      {showTakeawaySettle && (
+        <TakeawaySettleModal
+          lines={cart.lines}
+          total={cart.total}
+          onSuccess={handleTakeawaySettleSuccess}
+          onClose={() => setShowTakeawaySettle(false)}
+        />
+      )}
+
+      {/* Slip Modal Preview & Confirmation (For Dine-In or Edit Order) */}
       {slipModalResult && (
         <SlipModal
           sale={slipModalResult.sale}
