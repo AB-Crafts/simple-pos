@@ -12,6 +12,7 @@ interface Props {
 }
 
 const CHAI_PRESETS = [90, 100, 110, 120, 130, 140, 150];
+const GENERAL_PRESETS = [100, 200, 500, 1000, 5000];
 
 const MILK_WEIGHT_PRESETS = [
   { label: '0.25 kg (Paao)', weight: 0.25 },
@@ -24,6 +25,7 @@ export function CustomAmountModal({
   product,
   initialUnitPrice,
   initialQuantity = 1,
+  initialName,
   onConfirm,
   onClose,
 }: Props) {
@@ -31,14 +33,26 @@ export function CustomAmountModal({
     product.unit === 'kg' ||
     product.name.toLowerCase().includes('milk');
 
-  const standardRateRupees = toRupees(product.sellingPrice) || 200;
+  const isChai =
+    product.name.toLowerCase().includes('karak') ||
+    product.name.toLowerCase().includes('chai');
+
+  const isOpenCustomItem =
+    product.id.startsWith('custom-open-item') ||
+    product.name.toLowerCase().includes('custom');
+
+  const standardRateRupees = toRupees(product.sellingPrice) || (isChai ? 90 : 100);
   const defaultRupees =
     initialUnitPrice !== undefined
       ? toRupees(initialUnitPrice)
       : isKgProduct
       ? standardRateRupees
-      : 90;
+      : isChai
+      ? 90
+      : standardRateRupees;
+
   const [rupeesStr, setRupeesStr] = useState<string>(defaultRupees > 0 ? String(defaultRupees) : '');
+  const [customItemName, setCustomItemName] = useState<string>(initialName || (isOpenCustomItem ? '' : product.name));
   const [quantity, setQuantity] = useState<number>(initialQuantity > 0 ? initialQuantity : 1);
 
   const currentRupees = parseFloat(rupeesStr) || 0;
@@ -60,7 +74,7 @@ export function CustomAmountModal({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentRupees, quantity]);
+  }, [currentRupees, quantity, customItemName]);
 
   function handlePresetClick(amount: number) {
     setRupeesStr(String(amount));
@@ -90,24 +104,21 @@ export function CustomAmountModal({
   }
 
   function handleSubmit() {
-    if (!isKgProduct) {
-      if (currentRupees < 90 || currentRupees > 150) {
-        alert('Custom Chai amount must be between Rs. 90 and Rs. 150');
-        return;
-      }
-    } else if (currentRupees <= 0) {
-      alert('Please enter a valid amount greater than 0');
+    if (currentRupees <= 0) {
+      alert('Please enter a valid amount greater than Rs. 0');
       return;
     }
 
     const unitPricePaisa = toPaisa(currentRupees);
-    let finalName = product.name;
+    let finalName = customItemName.trim() || product.name;
 
     if (isKgProduct && calculatedKg > 0) {
       const formattedKg = calculatedKg % 1 === 0 ? calculatedKg.toFixed(0) : calculatedKg.toFixed(2);
       finalName = `${product.name} (${formattedKg} kg)`;
-    } else if (unitPricePaisa !== product.sellingPrice) {
+    } else if (!isOpenCustomItem && unitPricePaisa !== product.sellingPrice) {
       finalName = `${product.name} (Rs.${currentRupees})`;
+    } else if (isOpenCustomItem && !customItemName.trim()) {
+      finalName = `Custom Item (Rs.${currentRupees})`;
     }
 
     onConfirm(product, unitPricePaisa, finalName, quantity);
@@ -125,12 +136,14 @@ export function CustomAmountModal({
         <div className="modal-header">
           <div>
             <h3 id="custom-modal-title" className="modal-title">
-              {isKgProduct ? '🥛' : '☕'} Custom Amount: {product.name}
+              {isKgProduct ? '🥛' : isChai ? '☕' : '🏷️'} {isOpenCustomItem ? 'Add Custom Amount Item' : `Custom Amount: ${product.name}`}
             </h3>
             <span className="modal-subtitle">
               {isKgProduct
                 ? `Standard Rate: ${formatMoney(product.sellingPrice)} / kg`
-                : `Standard Rate: ${formatMoney(product.sellingPrice)} / cup • Custom Range: Rs.90 to Rs.150`}
+                : isChai
+                ? `Standard Rate: ${formatMoney(product.sellingPrice)} / cup · Quick presets or enter custom amount`
+                : `Enter custom rupee amount to add to bill`}
             </span>
           </div>
           <button className="btn-icon" onClick={onClose} aria-label="Close modal">
@@ -138,11 +151,27 @@ export function CustomAmountModal({
           </button>
         </div>
 
+        {/* Optional Custom Item Title/Description */}
+        {isOpenCustomItem && (
+          <div className="form-group" style={{ marginBottom: 12 }}>
+            <label className="form-label" style={{ fontSize: 13 }}>
+              Item Name / Description (Optional):
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. Special Order, Catering, Extra Item..."
+              value={customItemName}
+              onChange={(e) => setCustomItemName(e.target.value)}
+            />
+          </div>
+        )}
+
         {/* Big Amount Display / Input */}
         <div className="custom-amount-display-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <label className="custom-amount-label" htmlFor="custom-rupees-input">
-              {isKgProduct ? 'Milk Amount (Rs.)' : 'Chai Custom Amount (Rs. 90 – 150)'}
+              {isKgProduct ? 'Milk Amount (Rs.)' : isChai ? 'Chai Amount (Rs.)' : 'Custom Amount (Rs.)'}
             </label>
             {isKgProduct && calculatedKg > 0 && (
               <span className="custom-kg-badge">
@@ -155,13 +184,12 @@ export function CustomAmountModal({
             <input
               id="custom-rupees-input"
               type="number"
-              min={isKgProduct ? 1 : 90}
-              max={isKgProduct ? undefined : 150}
+              min={1}
               step="1"
               className="custom-amount-input"
               value={rupeesStr}
               onChange={(e) => setRupeesStr(e.target.value)}
-              placeholder={isKgProduct ? '0' : '90'}
+              placeholder="100"
               autoFocus
             />
           </div>
@@ -191,13 +219,34 @@ export function CustomAmountModal({
         )}
 
         {/* Quick Amount Presets (For Chai) */}
-        {!isKgProduct && (
+        {!isKgProduct && isChai && (
           <div className="custom-presets-section">
             <span className="section-micro-label">
               ⚡ Quick Rupee Presets:
             </span>
             <div className="custom-presets-grid">
               {CHAI_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  className={`preset-btn ${currentRupees === preset ? 'preset-btn--active' : ''}`}
+                  onClick={() => handlePresetClick(preset)}
+                >
+                  Rs.{preset}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Amount Presets (For General Custom Items: 100, 200, 500, 1000, 5000) */}
+        {!isKgProduct && !isChai && (
+          <div className="custom-presets-section">
+            <span className="section-micro-label">
+              ⚡ Quick Rupee Presets:
+            </span>
+            <div className="custom-presets-grid">
+              {GENERAL_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
@@ -231,7 +280,7 @@ export function CustomAmountModal({
           <div className="custom-controls-side">
             <div className="custom-qty-control">
               <label className="section-micro-label">
-                Quantity {isKgProduct ? '(Pots / Bags)' : '(Cups / Pots)'}:
+                Quantity {isKgProduct ? '(Pots / Bags)' : '(Qty)'}:
               </label>
               <div className="qty-picker">
                 <button
@@ -278,7 +327,7 @@ export function CustomAmountModal({
             onClick={handleSubmit}
             disabled={currentRupees <= 0}
           >
-            {isKgProduct ? '🥛' : '☕'} Add to Order — {currentRupees > 0 ? formatMoney(currentTotalPaisa) : 'Rs.0'}
+            {isKgProduct ? '🥛' : isChai ? '☕' : '🏷️'} Add to Order — {currentRupees > 0 ? formatMoney(currentTotalPaisa) : 'Rs.0'}
           </button>
         </div>
       </div>

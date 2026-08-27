@@ -211,18 +211,16 @@ export function RecordPaymentModal({
                   >
                     Exact (Rs. {totalRs})
                   </button>
-                  {[500, 1000, 2000, 5000]
-                    .filter((amt) => amt >= totalRs)
-                    .map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        className="chip"
-                        onClick={() => handleQuickTender(amt)}
-                      >
-                        Rs. {amt}
-                      </button>
-                    ))}
+                  {[500, 1000, 5000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      className="chip"
+                      onClick={() => handleQuickTender(amt)}
+                    >
+                      Rs. {amt}
+                    </button>
+                  ))}
                 </div>
 
                 {isUnderpaid && (

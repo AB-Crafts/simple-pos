@@ -146,6 +146,8 @@ export interface CreateOrderPayload {
   status?: OrderStatus;
   paymentMethod?: PaymentMethod;
   amountReceived?: number | null;
+  customerName?: string | null;
+  customerContact?: string | null;
 }
 
 export async function createOrder(input: CreateOrderPayload): Promise<{ sale: Sale; items: SaleItem[] }> {
@@ -156,6 +158,8 @@ export async function createOrder(input: CreateOrderPayload): Promise<{ sale: Sa
     status = 'PENDING',
     paymentMethod = 'CASH',
     amountReceived = null,
+    customerName = null,
+    customerContact = null,
   } = input;
 
   if (!cart || cart.length === 0) {
@@ -195,8 +199,8 @@ export async function createOrder(input: CreateOrderPayload): Promise<{ sale: Sa
       INSERT INTO sales (
         id, display_id, order_number, order_type, status, taken_by,
         subtotal, discount, total, payment_method, amount_received,
-        change_given, voided, printed_department_items, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+        change_given, customer_name, customer_contact, voided, printed_department_items, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
     `).run(
       saleId,
       displayId,
@@ -210,12 +214,14 @@ export async function createOrder(input: CreateOrderPayload): Promise<{ sale: Sa
       paymentMethod,
       status === 'PAID' && paymentMethod === 'CASH' ? amountReceived : null,
       changeGiven,
+      customerName ? customerName.trim() : null,
+      customerContact ? customerContact.trim() : null,
       JSON.stringify(printedDepartmentItems),
       now.getTime(),
       now.getTime()
     );
 
-    // 2. Insert sale_items and adjust stock if PAID
+    // 2. Insert sale_items and adjust stock if PAID or CREDIT
     const insertItem = db.prepare(`
       INSERT INTO sale_items (id, sale_id, product_id, product_name, department, unit, quantity, unit_price, cost_price, total)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -262,15 +268,14 @@ export async function createOrder(input: CreateOrderPayload): Promise<{ sale: Sa
         total: itemTotal,
       });
 
-      if (status === 'PAID' && line.productId) {
+      if ((status === 'PAID' || status === 'CREDIT') && line.productId) {
         updateStock.run(line.quantity, now.getTime(), line.productId);
       }
     }
 
-    // 3. Log money transaction if PAID
-    if (status === 'PAID') {
-      const txnType =
-        paymentMethod === 'CASH' ? 'CASH_SALE' : paymentMethod === 'CARD' ? 'CARD_SALE' : 'CREDIT_SALE';
+    // 3. Log money transaction only if cash or card was received
+    if (status === 'PAID' && (paymentMethod === 'CASH' || paymentMethod === 'CARD')) {
+      const txnType = paymentMethod === 'CASH' ? 'CASH_SALE' : 'CARD_SALE';
 
       db.prepare(`
         INSERT INTO money_transactions (id, type, amount, reference_id, created_at)

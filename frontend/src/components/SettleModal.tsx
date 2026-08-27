@@ -162,13 +162,11 @@ export function SettleModal({ sale, items, onSuccess, onClose }: Props) {
                 <button type="button" className="chip" onClick={() => handleQuickTender(totalRupees)}>
                   Exact (Rs {totalRupees})
                 </button>
-                {[100, 500, 1000, 5000].map((val) =>
-                  val >= totalRupees ? (
-                    <button key={val} type="button" className="chip" onClick={() => handleQuickTender(val)}>
-                      Rs {val}
-                    </button>
-                  ) : null
-                )}
+                {[500, 1000, 5000].map((val) => (
+                  <button key={val} type="button" className="chip" onClick={() => handleQuickTender(val)}>
+                    Rs {val}
+                  </button>
+                ))}
               </div>
 
               <div className="change-display">

@@ -6,6 +6,7 @@ import { ProductButton } from './ProductButton';
 interface Props {
   onAddProduct: (product: Product) => void;
   onCustomAmount?: (product: Product) => void;
+  onOpenCustomItem?: () => void;
 }
 
 const DEPARTMENT_ORDER: Record<Department, number> = {
@@ -63,7 +64,7 @@ function getProductDepartment(p: Product): Department {
   return 'GENERAL';
 }
 
-export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
+export function ProductGrid({ onAddProduct, onCustomAmount, onOpenCustomItem }: Props) {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | 'all'>('all');
 
@@ -299,6 +300,16 @@ export function ProductGrid({ onAddProduct, onCustomAmount }: Props) {
               {c.name}
             </button>
           ))}
+          {onOpenCustomItem && (
+            <button
+              type="button"
+              className="category-tab category-tab--custom-amount"
+              onClick={onOpenCustomItem}
+              title="Add open price / custom amount item to cart"
+            >
+              ➕ Custom Amount
+            </button>
+          )}
         </div>
       </div>
 
