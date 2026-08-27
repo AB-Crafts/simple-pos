@@ -3,6 +3,7 @@ import { getAllSalesWithItems } from '../services/salesService';
 import { formatMoney } from '../utils/money';
 import { formatCustomerBill, formatChaiSlip, formatParhataSlip, printReceiptText } from '../utils/slips';
 import { RecordPaymentModal } from '../components/RecordPaymentModal';
+import { DeleteSaleModal } from '../components/DeleteSaleModal';
 import type { Sale, SaleItem } from '../types';
 
 export function SalesHistoryPage() {
@@ -13,6 +14,7 @@ export function SalesHistoryPage() {
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState<'ALL' | 'CREDIT' | 'CASH' | 'CARD'>('ALL');
   const [recordPaymentTarget, setRecordPaymentTarget] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -116,6 +118,7 @@ export function SalesHistoryPage() {
                 expanded={expandedId === sale.id}
                 onToggle={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
                 onRecordPayment={(saleToPay, itemsToPay) => setRecordPaymentTarget({ sale: saleToPay, items: itemsToPay })}
+                onDelete={(saleToDelete) => setDeleteTarget(saleToDelete)}
               />
             ))}
             {filteredSales.length === 0 && (
@@ -137,6 +140,17 @@ export function SalesHistoryPage() {
         />
       )}
 
+      {deleteTarget && (
+        <DeleteSaleModal
+          sale={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onSuccess={(deletedSale) => {
+            setToast(`Order #${deletedSale.orderNumber} was permanently deleted.`);
+            loadSales();
+          }}
+        />
+      )}
+
       {toast && (
         <div className="toast-notification">
           <span>{toast}</span>
@@ -153,12 +167,14 @@ function SaleRow({
   expanded,
   onToggle,
   onRecordPayment,
+  onDelete,
 }: {
   sale: Sale;
   items: SaleItem[];
   expanded: boolean;
   onToggle: () => void;
   onRecordPayment: (sale: Sale, items: SaleItem[]) => void;
+  onDelete: (sale: Sale) => void;
 }) {
   function handlePrintBill(e: React.MouseEvent) {
     e.stopPropagation();
@@ -241,6 +257,46 @@ function SaleRow({
             </>
           )}
           <span className="sale-row__total">{formatMoney(sale.total)}</span>
+          {isPaid && (
+            <button
+              type="button"
+              className="btn-icon delete-icon-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(sale);
+              }}
+              title="Permanently Delete Paid Order (Password required)"
+              style={{
+                color: 'var(--danger)',
+                background: 'var(--danger-bg)',
+                border: '1px solid var(--danger-border)',
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--radius-sm)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginLeft: 4,
+                cursor: 'pointer',
+              }}
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -286,9 +342,45 @@ function SaleRow({
               📋 Print Kitchen Token
             </button>
             {isPaid && (
-              <button className="btn btn-sm btn-ghost" onClick={handlePrintBill}>
-                🧾 Print Bill
-              </button>
+              <>
+                <button className="btn btn-sm btn-ghost" onClick={handlePrintBill}>
+                  🧾 Print Bill
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger-outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(sale);
+                  }}
+                  title="Permanently Delete Paid Order (Password required)"
+                  style={{
+                    color: 'var(--danger)',
+                    borderColor: 'var(--danger-border)',
+                    background: 'var(--danger-bg)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                  Delete Order
+                </button>
+              </>
             )}
           </div>
         </div>

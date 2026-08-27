@@ -291,6 +291,15 @@ export async function voidOrder(orderId: string): Promise<void> {
 }
 
 /**
+ * Permanently deletes a paid sale record with password authorization.
+ * Leaves no trace and completely removes sale and payment records.
+ */
+export async function deletePaidSale(orderId: string, password: string): Promise<void> {
+  await apiClient.delete(`/sales/${orderId}`, { password });
+}
+
+
+/**
  * Fetches all sales with line items for OrdersPage and SalesHistoryPage.
  */
 export async function getAllSalesWithItems(): Promise<{ sales: Sale[]; itemsMap: Record<string, SaleItem[]> }> {

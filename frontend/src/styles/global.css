@@ -2351,6 +2351,13 @@ textarea:focus {
   gap: 8px;
 }
 
+.delete-icon-btn:hover {
+  background: #fee2e2 !important;
+  border-color: var(--danger) !important;
+  transform: scale(1.05);
+}
+
+
 .badge {
   padding: 2px 7px;
   border-radius: var(--radius-sm);

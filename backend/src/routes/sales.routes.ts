@@ -10,6 +10,7 @@ import {
   settleHandler,
   recordPaymentHandler,
   voidHandler,
+  deleteHandler,
 } from '../controllers/sales.controller.js';
 
 export const salesRoutes = Router();
@@ -23,3 +24,4 @@ salesRoutes.put('/:id', asyncHandler(updateHandler));
 salesRoutes.post('/:id/settle', asyncHandler(settleHandler));
 salesRoutes.post('/:id/record-payment', asyncHandler(recordPaymentHandler));
 salesRoutes.post('/:id/void', asyncHandler(voidHandler));
+salesRoutes.delete('/:id', asyncHandler(deleteHandler));

@@ -9,6 +9,7 @@ import {
   settlePendingOrder,
   recordKhataPayment,
   voidOrder,
+  deleteSale,
 } from '../services/sales.service.js';
 import { ApiError } from '../utils/ApiError.js';
 
@@ -85,3 +86,10 @@ export async function voidHandler(req: Request, res: Response) {
   await voidOrder(req.params.id);
   res.json({ ok: true, message: 'Order voided' });
 }
+
+export async function deleteHandler(req: Request, res: Response) {
+  const password = req.body?.password ?? req.query?.password;
+  await deleteSale(req.params.id, password);
+  res.json({ ok: true, message: 'Sale completely deleted' });
+}
+

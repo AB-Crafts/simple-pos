@@ -549,3 +549,46 @@ export async function voidOrder(orderId: string): Promise<void> {
 
   executeTransaction();
 }
+
+export const HARDCODED_DELETE_PASSWORD = 'admin123';
+
+export async function deleteSale(orderId: string, password?: string): Promise<void> {
+  if (!password || password !== HARDCODED_DELETE_PASSWORD) {
+    throw new ApiError(403, 'Invalid authorization password. Deletion not allowed.');
+  }
+
+  const existing = db.prepare('SELECT * FROM sales WHERE id = ?').get(orderId) as SaleRow | undefined;
+  if (!existing) throw new ApiError(404, `Order ${orderId} not found`);
+
+  if (existing.status !== 'PAID') {
+    throw new ApiError(400, 'Only paid orders can be permanently deleted');
+  }
+
+  const items = db.prepare('SELECT * FROM sale_items WHERE sale_id = ?').all(orderId) as SaleItemRow[];
+  const now = Date.now();
+
+  const executeTransaction = db.transaction(() => {
+    // 1. Restore product stock for items that had stock decremented
+    const restoreStock = db.prepare(`
+      UPDATE products SET stock = stock + ?, updated_at = ? WHERE id = ?
+    `);
+
+    for (const item of items) {
+      if (item.product_id) {
+        restoreStock.run(item.quantity, now, item.product_id);
+      }
+    }
+
+    // 2. Delete money transactions linked to this sale
+    db.prepare('DELETE FROM money_transactions WHERE reference_id = ?').run(orderId);
+
+    // 3. Delete sale items
+    db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(orderId);
+
+    // 4. Completely remove the sale record
+    db.prepare('DELETE FROM sales WHERE id = ?').run(orderId);
+  });
+
+  executeTransaction();
+}
+
