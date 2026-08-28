@@ -1,11 +1,11 @@
 {
   "name": "simple-pos-frontend",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node init && vite",
+    "build": "node init && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
