@@ -1,12 +1,12 @@
 {
   "name": "simple-pos-backend",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -b",
-    "start": "node dist/server.js",
+    "dev": "node init && tsx watch src/server.ts",
+    "build": "node init && tsc -b",
+    "start": "node init && node dist/server.js",
     "migrate": "tsx src/database/migrate.ts",
     "lint": "tsc --noEmit"
   },
