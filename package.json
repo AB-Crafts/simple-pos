@@ -1,6 +1,6 @@
 {
   "name": "banu-pyala-pos",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Banu Pyala Cafe - Standalone Point of Sale Desktop Application",
   "author": "Banu Pyala Cafe",
   "main": "electron/main.cjs",
@@ -10,14 +10,14 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently -k -n \"BACKEND,FRONTEND,ELECTRON\" -c \"yellow,blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on -t 30000 http-get://127.0.0.1:4000/api/health http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "dev:electron": "cross-env NODE_ENV=development electron .",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build",
-    "build:backend": "npm --prefix backend run build",
-    "build:frontend": "npm --prefix frontend run build",
-    "start": "cross-env NODE_ENV=production electron .",
+    "dev": "node init && concurrently -k -n \"BACKEND,FRONTEND,ELECTRON\" -c \"yellow,blue,green\" \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\" \"wait-on -t 30000 http-get://127.0.0.1:4000/api/health http-get://127.0.0.1:5173 && cross-env NODE_ENV=development electron .",
+    "dev:backend": "node init && npm --prefix backend run dev",
+    "dev:frontend": "node init && npm --prefix frontend run dev",
+    "dev:electron": "node init && cross-env NODE_ENV=development electron .",
+    "build": "node init && npm --prefix backend run build && npm --prefix frontend run build",
+    "build:backend": "node init && npm --prefix backend run build",
+    "build:frontend": "node init && npm --prefix frontend run build",
+    "start": "node init && cross-env NODE_ENV=production electron .",
     "rebuild": "electron-builder install-app-deps",
     "dist": "npm run build && electron-builder",
     "dist:dir": "npm run build && electron-builder --dir",
@@ -82,8 +82,10 @@
       "icon": "frontend/public/icons/icon-512.png"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Banu Pyala POS"
