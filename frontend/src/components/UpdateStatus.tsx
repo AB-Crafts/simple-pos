@@ -19,11 +19,8 @@ export function UpdateStatus() {
   const [status, setStatus] = useState<UpdateStatusData['status']>('idle');
   const [newVersion, setNewVersion] = useState<string | null>(null);
   const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
-  const [releaseNotes, setReleaseNotes] = useState<string | null>(null);
   const [isManualChecking, setIsManualChecking] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [isRestarting, setIsRestarting] = useState(false);
-  const [currentAppVersion, setCurrentAppVersion] = useState<string>('0.2.0');
+  const [currentAppVersion, setCurrentAppVersion] = useState<string>('0.2.1');
 
   // Fetch current version if available in electron
   useEffect(() => {
@@ -46,9 +43,6 @@ export function UpdateStatus() {
     }
     if (typeof data.percent === 'number') {
       setDownloadPercent(data.percent);
-    }
-    if (data.releaseNotes) {
-      setReleaseNotes(data.releaseNotes);
     }
   }, []);
 
@@ -78,7 +72,6 @@ export function UpdateStatus() {
             if (hasUpdate) {
               setStatus('available');
               setNewVersion(release.tag_name);
-              setReleaseNotes(release.body || null);
             } else {
               setStatus('not-available');
             }
@@ -125,10 +118,8 @@ export function UpdateStatus() {
     };
   }, [checkUpdates]);
 
-  const triggerRestartAndInstall = useCallback(() => {
-    setIsRestarting(true);
-    setShowModal(true);
-    setTimeout(() => {
+  const handleClick = () => {
+    if (status === 'downloaded') {
       if (window.electronAPI?.quitAndInstall) {
         window.electronAPI.quitAndInstall();
       } else {
@@ -136,39 +127,24 @@ export function UpdateStatus() {
           'https://github.com/AB-Crafts/simple-pos/releases/latest',
           '_blank'
         );
-        setIsRestarting(false);
-        setShowModal(false);
       }
-    }, 800);
-  }, []);
-
-  const handleClick = () => {
-    if (status === 'downloaded') {
-      triggerRestartAndInstall();
       return;
     }
 
-    if (status === 'available' || status === 'downloading') {
-      setShowModal(true);
+    if (status === 'available') {
+      if (window.electronAPI?.checkForUpdates) {
+        checkUpdates();
+      } else {
+        window.open(
+          'https://github.com/AB-Crafts/simple-pos/releases/latest',
+          '_blank'
+        );
+      }
       return;
     }
 
     // Otherwise trigger a fresh manual check
     checkUpdates();
-  };
-
-  const handleInstallNow = () => {
-    if (status === 'downloaded') {
-      triggerRestartAndInstall();
-    } else if (window.electronAPI?.quitAndInstall) {
-      triggerRestartAndInstall();
-    } else {
-      window.open(
-        'https://github.com/AB-Crafts/simple-pos/releases/latest',
-        '_blank'
-      );
-      setShowModal(false);
-    }
   };
 
   const isChecking = isManualChecking || status === 'checking';
@@ -183,17 +159,17 @@ export function UpdateStatus() {
     modifier = 'checking';
     title = 'Checking for updates...';
   } else if (status === 'downloaded') {
-    label = 'RESTART TO UPDATE';
+    label = 'RESTART FOR NEW VERSION';
     modifier = 'downloaded';
-    title = `Update ${newVersion ? `(${newVersion})` : ''} downloaded. Click to restart and apply.`;
+    title = `Update ${newVersion ? `(${newVersion}) ` : ''}is ready! Click to restart application now.`;
   } else if (status === 'downloading') {
     label = `DOWNLOADING ${downloadPercent !== null ? `${downloadPercent}%` : '...'}`;
     modifier = 'downloading';
-    title = 'Downloading update package...';
+    title = 'Downloading update package in the background...';
   } else if (status === 'available') {
-    label = 'UPDATE';
+    label = 'UPDATE AVAILABLE';
     modifier = 'available';
-    title = `New version ${newVersion || ''} is available! Click to view update.`;
+    title = `New version ${newVersion || ''} is available! Click to download.`;
   } else {
     label = 'UP TO DATE';
     modifier = 'uptodate';
@@ -201,162 +177,31 @@ export function UpdateStatus() {
   }
 
   return (
-    <>
-      <button
-        type="button"
-        className={`update-status update-status--${modifier}`}
-        onClick={handleClick}
-        title={title}
-        aria-label={label}
-        disabled={isChecking && !isManualChecking}
-      >
-        {isChecking && (
-          <span className="update-status__spinner" aria-hidden="true" />
-        )}
-        {status === 'available' && !isChecking && (
-          <span className="update-status__pulse-dot" aria-hidden="true" />
-        )}
-        {status === 'downloaded' && !isChecking && (
-          <span className="update-status__icon" aria-hidden="true">
-            ⚡
-          </span>
-        )}
-        {modifier === 'uptodate' && !isChecking && (
-          <span className="update-status__icon" aria-hidden="true">
-            ✓
-          </span>
-        )}
-        <span className="update-status__text">{label}</span>
-      </button>
-
-      {showModal && (
-        <div
-          className="modal-backdrop"
-          onClick={() => {
-            if (!isRestarting) setShowModal(false);
-          }}
-        >
-          <div
-            className="modal-content update-modal"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="update-modal-title"
-          >
-            {isRestarting ? (
-              <div className="update-modal__restarting">
-                <span
-                  className="update-status__spinner update-status__spinner--large"
-                  aria-hidden="true"
-                />
-                <h4>Applying Update & Restarting...</h4>
-                <p>
-                  Banu Pyala POS is restarting to complete the update
-                  installation. It will reopen in a few seconds.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="modal-header">
-                  <h3 id="update-modal-title" className="modal-title">
-                    {status === 'downloaded'
-                      ? '⚡ Update Ready to Install'
-                      : status === 'downloading'
-                      ? '⏳ Downloading Update'
-                      : '🚀 New Update Available'}
-                  </h3>
-                  <button
-                    type="button"
-                    className="modal-close-btn"
-                    onClick={() => setShowModal(false)}
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="update-modal__body">
-                  <div className="update-modal__version-badge">
-                    <span className="update-modal__current">
-                      Current: v{currentAppVersion}
-                    </span>
-                    <span className="update-modal__arrow">➜</span>
-                    <span className="update-modal__new">
-                      Latest: {newVersion || 'Latest'}
-                    </span>
-                  </div>
-
-                  {status === 'downloading' && (
-                    <div className="update-modal__progress-container">
-                      <div className="update-modal__progress-info">
-                        <span>Downloading package...</span>
-                        <span>
-                          {downloadPercent !== null
-                            ? `${downloadPercent}%`
-                            : 'Connecting...'}
-                        </span>
-                      </div>
-                      <div className="update-modal__progress-bar">
-                        <div
-                          className="update-modal__progress-fill"
-                          style={{
-                            width: `${
-                              downloadPercent !== null
-                                ? Math.max(8, downloadPercent)
-                                : 15
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {releaseNotes && (
-                    <div className="update-modal__notes">
-                      <div className="update-modal__notes-title">
-                        Release Notes:
-                      </div>
-                      <pre className="update-modal__notes-content">
-                        {releaseNotes}
-                      </pre>
-                    </div>
-                  )}
-
-                  <p className="update-modal__desc">
-                    {status === 'downloaded'
-                      ? 'The update is downloaded and ready to apply. Click "Restart & Install" to update now, or close this window to continue working and apply the update on exit.'
-                      : status === 'downloading'
-                      ? 'The new version is downloading in the background. You can continue taking orders.'
-                      : 'A newer version of Banu Pyala POS is available. Click below to install or view release details.'}
-                  </p>
-                </div>
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => setShowModal(false)}
-                  >
-                    {status === 'downloaded' ? 'Later (On Exit)' : 'Close'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--primary update-modal__action-btn"
-                    onClick={handleInstallNow}
-                    disabled={status === 'downloading'}
-                  >
-                    {status === 'downloaded'
-                      ? 'Restart & Install'
-                      : status === 'downloading'
-                      ? 'Downloading...'
-                      : 'Get Update'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+    <button
+      type="button"
+      className={`update-status update-status--${modifier}`}
+      onClick={handleClick}
+      title={title}
+      aria-label={label}
+      disabled={isChecking && !isManualChecking}
+    >
+      {isChecking && (
+        <span className="update-status__spinner" aria-hidden="true" />
       )}
-    </>
+      {status === 'available' && !isChecking && (
+        <span className="update-status__pulse-dot" aria-hidden="true" />
+      )}
+      {status === 'downloaded' && !isChecking && (
+        <span className="update-status__icon" aria-hidden="true">
+          ⚡
+        </span>
+      )}
+      {modifier === 'uptodate' && !isChecking && (
+        <span className="update-status__icon" aria-hidden="true">
+          ✓
+        </span>
+      )}
+      <span className="update-status__text">{label}</span>
+    </button>
   );
 }
